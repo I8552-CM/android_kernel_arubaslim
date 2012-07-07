@@ -2205,6 +2205,13 @@ config SCORPION_Uni_45nm_BUG
 
 	  This bug is not applicable to any ScorpionMP or Scorpion Uni 65nm(SC65U) cores.
 
+config HAVE_END_MEM
+	bool "Specify highest physical RAM address at compile time"
+
+config END_MEM
+	hex "Highest physical address where system RAM resides"
+	depends on HAVE_END_MEM
+
 config MSM_BUSPM_DEV
 	tristate "MSM Bus Performance Monitor Kernel Module"
 	depends on (ARCH_MSM8X60 || ARCH_MSM8960)

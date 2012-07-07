@@ -15,6 +15,9 @@
 #include <asm/system_misc.h>
 #include <linux/pm.h>
 #include <mach/proc_comm.h>
+#ifdef CONFIG_KEXEC_HARDBOOT
+#include <asm/kexec.h>
+#endif
 
 static void msm_pm_power_off(void)
 {
@@ -25,6 +28,38 @@ static void msm_pm_power_off(void)
 	for (;;)
 		;
 }
+
+#ifdef CONFIG_KEXEC_HARDBOOT
+void msm_kexec_hardboot(char str, const char *cmd)
+{
+	uint32_t restart_reason = 0x776655AA;
+
+       /* Reboot with the recovery kernel since the boot kernel decompressor may
+        * not support the hardboot jump. */
+	if (!strncmp(cmd, "recovery", 8))
+		restart_reason = 0x77665502;
+	else
+		restart_reason = 0x77665501;
+
+	/* Disable interrupts */
+	local_irq_disable();
+	local_fiq_disable();
+
+	/*
+	 * Take out a flat memory mapping  and will
+	 * insert a 1:1 mapping in place of
+	 * the user-mode pages to ensure predictable results
+	 * This function takes care of flushing the caches
+	 * and flushing the TLB.
+	 */
+	setup_mm_for_reboot();
+
+	pr_debug("The reset reason is %x\n", restart_reason);
+	msm_proc_comm(PCOM_RESET_CHIP, &restart_reason, 0);
+	for (;;)
+		;
+}
+#endif
 
 static void msm_pm_restart(char str, const char *cmd)
 {
@@ -68,6 +103,9 @@ static int __init msm_pm_restart_init(void)
 {
 	pm_power_off = msm_pm_power_off;
 	arm_pm_restart = msm_pm_restart;
+#ifdef CONFIG_KEXEC_HARDBOOT
+       kexec_hardboot_hook = msm_kexec_hardboot;
+#endif
 	return 0;
 }
 late_initcall(msm_pm_restart_init);
