@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2012, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,6 +112,9 @@ enum vcd_perf_level {
 #define VCD_METADATA_VC1            0x040
 #define VCD_METADATA_PASSTHROUGH    0x080
 #define VCD_METADATA_ENC_SLICE      0x100
+
+#define VCD_METADATA_EXT_DATA       0x0800
+#define VCD_METADATA_USER_DATA      0x1000
 
 struct vcd_property_meta_data_enable {
 	u32 meta_data_enable_flag;
@@ -370,4 +373,19 @@ struct vcd_property_sps_pps_for_idr_enable {
 	u32 sps_pps_for_idr_enable_flag;
 };
 
+struct vcd_property_meta_buffer {
+	u8 *kernel_virtual_addr;
+	u8 *physical_addr;
+	u32 size;
+	u32 count;
+	int pmem_fd;
+	u32 offset;
+	u8 *dev_addr;
+	void *client_data;
+	u8 *kernel_virt_addr_iommu;
+	u8 *physical_addr_iommu;
+	int pmem_fd_iommu;
+	u8 *dev_addr_iommu;
+	void *client_data_iommu;
+};
 #endif
