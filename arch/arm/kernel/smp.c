@@ -562,6 +562,7 @@ void smp_send_all_cpu_backtrace(void)
 	if (!cpus_empty(backtrace_mask))
 	{
 		pr_info("\nsending IPI to all other CPUs:\n");
+	if (!cpus_empty(backtrace_mask))
 		smp_cross_call(&backtrace_mask, IPI_CPU_BACKTRACE);
 	}
 
