@@ -1167,9 +1167,18 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			ret = pdata->off(mfd->pdev);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
-#if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
-			screen_unblanked = 0;
-#endif
+
+			if (mfd->timeline) {
+				/* Adding 1 is enough when pan_display is still
+				 * a blocking call and with mutex protection.
+				 * But if it is an async call, we will still
+				 * need to add 2. Adding 2 can be safer in
+				 * order to signal all existing fences, and it
+				 * is harmless. */
+				sw_sync_timeline_inc(mfd->timeline, 2);
+				mfd->timeline_value+= 2;
+			}
+
 			mfd->op_enable = TRUE;
 		}
 		break;
