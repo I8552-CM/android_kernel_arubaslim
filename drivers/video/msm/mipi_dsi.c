@@ -408,7 +408,9 @@ RETRY_MIPI_DSI_ON:
 		mipi_dsi_op_mode_config(mipi->mode); // call this function before panel_next_on 
 
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
-	ret = panel_next_on(pdev);
+	if (mfd->op_enable)
+ 		ret = panel_next_on(pdev);
+
 
 	if(!ret && retry_count > 0) {
 		retry_count--;
