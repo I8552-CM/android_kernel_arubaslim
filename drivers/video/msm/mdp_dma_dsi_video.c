@@ -284,6 +284,8 @@ int mdp_dsi_video_off(struct platform_device *pdev)
 	/* delay to make sure the last frame finishes */
 	msleep(20);
 
+        mdp_histogram_ctrl_all(TRUE);
+
 	return ret;
 }
 
