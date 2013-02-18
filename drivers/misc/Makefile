@@ -85,6 +85,7 @@ obj-$(CONFIG_MACH_INFINITE_DUOS_CTC)   += cw_tty.o
 obj-$(CONFIG_MACH_BAFFIN_DUOS_CTC)   += cw_tty.o
 obj-$(CONFIG_MACH_DELOS_DUOS_CTC)   += cw_tty.o
 obj-$(CONFIG_MACH_HENNESSY_DUOS_CTC)   += cw_tty.o
+obj-$(CONFIG_BLX) += blx.o
 #obj-$(CONFIG_MACH_ARUBA_CTC)   += cw_tty.o
 #obj-$(CONFIG_DPRAM_GSM)	+= dpramGSM/
 obj-$(CONFIG_GENERIC_BLN)	+= bln.o
