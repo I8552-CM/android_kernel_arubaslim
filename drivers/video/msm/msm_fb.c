@@ -2336,24 +2336,14 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	msm_fb_signal_timeline(mfd);
 	up(&msm_fb_pan_sem);
 	
-#if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
-	if (mfd->panel_power_on && !screen_unblanked) {
-		pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-		if ((pdata) && (pdata->unblank)) {
-			pdata->unblank(mfd->pdev);
-			screen_unblanked = 1;
-		}
-	}
-
-#else
-#if defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
-	if (unset_bl_level && !bl_updated && mfd->panel_power_on) 
-#else
 	if (unset_bl_level && !bl_updated)
-#endif
+
 		schedule_delayed_work(&mfd->backlight_worker,
 				backlight_duration);
-#endif
+
+	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
+		mdp_free_splash_buffer(mfd);
+
 	++mfd->panel_info.frame_count;
 	return 0;
 }
