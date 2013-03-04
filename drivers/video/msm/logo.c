@@ -124,21 +124,18 @@ int load_565rle_image(char *filename, bool bf_supported)
 		       __func__, __LINE__, info->node);
 		goto err_logo_free_data;
 	}
-	bits = (unsigned short *)(info->screen_base);
-	while (count > 3) {
-		unsigned n = ptr[0];
-		if (n > max)
-			break;
-		if (info->var.bits_per_pixel >= 24) { /* rgb888 */
-			memset16_rgb8888(bits, ptr[1], n << 1);
-			bits += n * 2;
-		} else {
+	if (info->screen_base) {
+		bits = (unsigned short *)(info->screen_base);
+		while (count > 3) {
+			unsigned n = ptr[0];
+			if (n > max)
+				break;
 			memset16(bits, ptr[1], n << 1);
 			bits += n;
+			max -= n;
+			ptr += 2;
+			count -= 4;
 		}
-		max -= n;
-		ptr += 2;
-		count -= 4;
 	}
 
 	flush_cache_all();
