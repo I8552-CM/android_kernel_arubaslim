@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_cp_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -19,7 +19,7 @@
 #include <linux/err.h>
 #include <linux/genalloc.h>
 #include <linux/io.h>
-#include <linux/msm_ion.h>
+#include <linux/ion.h>
 #include <linux/mm.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
@@ -223,7 +223,7 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 		/* Make sure we are in C state when the heap is protected. */
 		if (!cp_heap->allocated_bytes)
 			if (ion_on_first_alloc(heap))
-
+				goto out;
 
 		ret_value = ion_cp_protect_mem(cp_heap->secure_base,
 				cp_heap->secure_size, cp_heap->permission_type,
@@ -242,7 +242,7 @@ static int ion_cp_protect(struct ion_heap *heap, int version, void *data)
 				heap->name, cp_heap->base);
 		}
 	}
-
+out:
 	pr_debug("%s: protect count is %d\n", __func__,
 		atomic_read(&cp_heap->protect_cnt));
 	WARN_ON(atomic_read(&cp_heap->protect_cnt) < 0);
@@ -504,7 +504,7 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 	void *ret_value = NULL;
-	//unsigned long start_phys = cp_heap->base;
+	unsigned long start_phys = cp_heap->base;
 
 	mutex_lock(&cp_heap->lock);
 	if ((cp_heap->heap_protected == HEAP_NOT_PROTECTED) ||
@@ -516,12 +516,17 @@ void *ion_cp_heap_map_kernel(struct ion_heap *heap, struct ion_buffer *buffer)
 			return NULL;
 		}
 
-		if (ION_IS_CACHED(buffer->flags))
-			ret_value = ioremap_cached(buffer->priv_phys,
+		if (cp_heap->cma) {
+			ret_value = cp_heap->cpu_addr +
+					(buffer->priv_phys - start_phys);
+		} else {
+			if (ION_IS_CACHED(buffer->flags))
+				ret_value = ioremap_cached(buffer->priv_phys,
 							   buffer->size);
 			else
 				ret_value = ioremap(buffer->priv_phys,
 						    buffer->size);
+		}
 
 		if (!ret_value) {
 			ion_cp_release_region(cp_heap);
@@ -543,7 +548,8 @@ void ion_cp_heap_unmap_kernel(struct ion_heap *heap,
 	struct ion_cp_heap *cp_heap =
 		container_of(heap, struct ion_cp_heap, heap);
 
-	__arm_iounmap(buffer->vaddr);
+	if (!cp_heap->cma)
+		__arm_iounmap(buffer->vaddr);
 
 	buffer->vaddr = NULL;
 

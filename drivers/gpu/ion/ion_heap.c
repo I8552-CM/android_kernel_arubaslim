@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -18,7 +18,6 @@
 #include <linux/err.h>
 #include <linux/ion.h>
 #include "ion_priv.h"
-#include <linux/msm_ion.h>
 
 struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 {
