@@ -981,6 +981,11 @@ config CC_OPTIMIZE_FOR_SIZE
 
 	  If unsure, say Y.
 
+config CCACHE
+         bool "Use CCACHE with gcc"
+         help
+           Enabling this option will use ccache when compiling.
+
 config SYSCTL
 	bool
 
