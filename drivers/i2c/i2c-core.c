@@ -1463,7 +1463,8 @@ static int i2c_default_probe(struct i2c_adapter *adap, unsigned short addr)
 		err = i2c_smbus_xfer(adap, addr, 0, I2C_SMBUS_READ, 0,
 				     I2C_SMBUS_BYTE, &dummy);
 	else {
-		dev_warn(&adap->dev, "No suitable probing method supported\n");
+		dev_warn(&adap->dev, "No suitable probing method supported for address 0x%02X\n",
+			 addr);
 		err = -EOPNOTSUPP;
 	}
 
@@ -1623,7 +1624,8 @@ EXPORT_SYMBOL(i2c_get_adapter);
 
 void i2c_put_adapter(struct i2c_adapter *adap)
 {
-	module_put(adap->owner);
+	if (adap)
+		module_put(adap->owner);
 }
 EXPORT_SYMBOL(i2c_put_adapter);
 
@@ -2123,11 +2125,17 @@ s32 i2c_smbus_xfer(struct i2c_adapter *adapter, u16 addr, unsigned short flags,
 				break;
 		}
 		i2c_unlock_adapter(adapter);
-	} else
-		res = i2c_smbus_xfer_emulated(adapter, addr, flags, read_write,
-					      command, protocol, data);
 
-	return res;
+		if (res != -EOPNOTSUPP || !adapter->algo->master_xfer)
+			return res;
+		/*
+		 * Fall back to i2c_smbus_xfer_emulated if the adapter doesn't
+		 * implement native support for the SMBus operation.
+		 */
+	}
+
+	return i2c_smbus_xfer_emulated(adapter, addr, flags, read_write,
+				       command, protocol, data);
 }
 EXPORT_SYMBOL(i2c_smbus_xfer);
 
