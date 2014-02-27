@@ -26,10 +26,6 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 
-#if !defined(CONFIG_MACH_ROY)
-#define CONFIG_SEC_CPU_STEPPING
-#endif
-
 /*
  * dbs is used in this file as a shortform for demandbased switching
  * It helps to keep variable names smaller, simpler
@@ -38,6 +34,7 @@
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
+#define BOOSTED_SAMPLING_DOWN_FACTOR		(10)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
 #define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
 #define MICRO_FREQUENCY_UP_THRESHOLD		(95)
@@ -46,9 +43,6 @@
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
 #define MIN_FREQUENCY_DOWN_DIFFERENTIAL		(1)
 #define DEFAULT_FREQ_BOOST_TIME			(2500000)
-#ifdef CONFIG_SEC_CPU_STEPPING
-#define DEF_FREQ_STEP				(40)
-#endif /* CONFIG_SEC_CPU_STEPPING */
 
 u64 freq_boosted_time;
 
@@ -68,12 +62,19 @@ u64 freq_boosted_time;
 static unsigned int min_sampling_rate;
 
 #define DEFAULT_SAMPLING_RATE			(50000)
+#define BOOSTED_SAMPLING_RATE			(20000)
 #define LATENCY_MULTIPLIER			(1000)
 #define MIN_LATENCY_MULTIPLIER			(100)
 #define TRANSITION_LATENCY_LIMIT		(10 * 1000 * 1000)
 
 #define POWERSAVE_BIAS_MAXLEVEL			(1000)
 #define POWERSAVE_BIAS_MINLEVEL			(-1000)
+
+/* have the timer rate booted for this much time 2.5s*/
+#define TIMER_RATE_BOOST_TIME 2500000
+int sampling_rate_boosted;
+u64 sampling_rate_boosted_time;
+unsigned int current_sampling_rate;
 
 static void do_dbs_timer(struct work_struct *work);
 static int cpufreq_governor_dbs(struct cpufreq_policy *policy,
@@ -146,10 +147,7 @@ static struct dbs_tuners {
 	unsigned int boosted;
 	unsigned int freq_boost_time;
 	unsigned int boostfreq;
-#ifdef CONFIG_SEC_CPU_STEPPING
-	/* msm8960 tuners */
-	unsigned int freq_step;
-#endif /* CONFIG_SEC_CPU_STEPPING */
+
 } dbs_tuners_ins = {
 	.up_threshold = DEF_FREQUENCY_UP_THRESHOLD,
 	.sampling_down_factor = DEF_SAMPLING_DOWN_FACTOR,
@@ -157,9 +155,7 @@ static struct dbs_tuners {
 	.ignore_nice = 0,
 	.powersave_bias = 0,
 	.freq_boost_time = DEFAULT_FREQ_BOOST_TIME,
-#ifdef CONFIG_SEC_CPU_STEPPING
-	.freq_step = DEF_FREQ_STEP,
-#endif /* CONFIG_SEC_CPU_STEPPING */
+
 };
 
 static inline u64 get_cpu_idle_time_jiffy(unsigned int cpu, u64 *wall)
@@ -412,6 +408,12 @@ static ssize_t store_boostpulse(struct kobject *kobj, struct attribute *attr,
 
 	dbs_tuners_ins.boosted = 1;
 	freq_boosted_time = ktime_to_us(ktime_get());
+
+	if (sampling_rate_boosted) {
+		sampling_rate_boosted = 0;
+		dbs_tuners_ins.sampling_rate = current_sampling_rate;
+	}
+
 	return count;
 }
 
@@ -436,6 +438,7 @@ static ssize_t store_sampling_rate(struct kobject *a, struct attribute *b,
 	if (ret != 1)
 		return -EINVAL;
 	update_sampling_rate(input);
+	current_sampling_rate = dbs_tuners_ins.sampling_rate;
 	return count;
 }
 
@@ -709,6 +712,16 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 		}
 	}
 
+	/* Only core0 controls the timer_rate */
+	if (sampling_rate_boosted && policy->cpu == 0) {
+		if (ktime_to_us(ktime_get()) - sampling_rate_boosted_time >=
+					TIMER_RATE_BOOST_TIME) {
+
+			dbs_tuners_ins.sampling_rate = current_sampling_rate;
+			sampling_rate_boosted = 0;
+		}
+	}
+
 	/*
 	 * Every sampling_rate, we check, if current idle time is less
 	 * than 20% (default), then we try to increase frequency
@@ -799,29 +812,16 @@ static void dbs_check_cpu(struct cpu_dbs_info_s *this_dbs_info)
 
 	}
 
-	if (min_sampling_rate < DEFAULT_SAMPLING_RATE)
+	if (dbs_tuners_ins.sampling_rate < DEFAULT_SAMPLING_RATE)
 		cpufreq_notify_utilization(policy, avg_load_at_max_freq);
 	else
 		cpufreq_notify_utilization(policy, load_at_max_freq);
 
 	/* Check for frequency increase */
 	if (max_load_freq > dbs_tuners_ins.up_threshold * policy->cur) {
-#ifdef CONFIG_SEC_CPU_STEPPING
-		int inc = (policy->max * dbs_tuners_ins.freq_step) / 100;
-		int target = min(policy->max, policy->cur + inc);
-#endif /* CONFIG_SEC_CPU_STEPPING */
+
 		/* If switching to max speed, apply sampling_down_factor */
-#ifdef CONFIG_SEC_CPU_STEPPING
-		if (policy->cur < policy->max && target == policy->max)
-			this_dbs_info->rate_mult =
-				dbs_tuners_ins.sampling_down_factor;
-		dbs_freq_increase(policy, target);
-#else /* CONFIG_SEC_CPU_STEPPING */
-		if (policy->cur < policy->max)
-			this_dbs_info->rate_mult =
-				dbs_tuners_ins.sampling_down_factor;
-		dbs_freq_increase(policy, policy->max);
-#endif /* CONFIG_SEC_CPU_STEPPING */
+
 		return;
 	}
 
@@ -1002,12 +1002,13 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		/* nothing to do */
 		return;
 	}
-#ifdef CONFIG_SEC_CPU_STEPPING
-	if (strncmp(handle->dev->name,
-			"sec_touchscreen", strlen("sec_touchscreen"))){
-		return;
+	
+	if (current_sampling_rate > BOOSTED_SAMPLING_RATE) {
+		dbs_tuners_ins.sampling_rate = BOOSTED_SAMPLING_RATE;
+		sampling_rate_boosted_time = ktime_to_us(ktime_get());
+		sampling_rate_boosted = 1;
 	}
-#endif /* CONFIG_SEC_CPU_STEPPING */
+
 	for_each_online_cpu(i)
 		queue_work_on(i, input_wq, &per_cpu(dbs_refresh_work, i).work);
 }
