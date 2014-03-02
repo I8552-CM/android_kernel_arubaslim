@@ -1,5 +1,5 @@
 config ZSMALLOC
-	tristate "Memory allocator for compressed pages"
+	bool "Memory allocator for compressed pages"
 	# X86 dependency is because of the use of __flush_tlb_one and set_pte
 	# in zsmalloc-main.c.
 	# TODO: convert these to portable functions
