@@ -4,7 +4,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5/audio_mp3.c
  *
@@ -454,12 +454,15 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			be32_to_cpu(datacb_data->rec_status));
 
 		/* Data recorded */
+		/* modify contidion MAX_FRAME_SIZE to MAX_REC_BUF_SIZE 
+		  * to fix voice record failure issue
+		  */
 		if ((rec_status == RPC_VOC_REC_STAT_DATA) ||
 		(rec_status == RPC_VOC_REC_STAT_DONE)) {
 			if (datacb_data->pkt.fw_data.fw_ptr_status &&
 			be32_to_cpu(datacb_data->pkt.fw_data.rec_length) &&
 			be32_to_cpu(datacb_data->pkt.fw_data.rec_length)
-			<= MAX_FRAME_SIZE) {
+			<= MAX_REC_BUF_SIZE) {
 
 				MM_DBG("Copy FW link:rec_buf_size \
 				= 0x%08x, rec_length=0x%08x\n",
@@ -484,7 +487,7 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			} else if (datacb_data->pkt.rw_data.rw_ptr_status &&
 			be32_to_cpu(datacb_data->pkt.rw_data.rec_length) &&
 			be32_to_cpu(datacb_data->pkt.rw_data.rec_length)
-			<= MAX_FRAME_SIZE) {
+			<= MAX_REC_BUF_SIZE) {
 
 				MM_DBG("Copy RW link:rec_buf_size \
 				=0x%08x, rec_length=0x%08x\n",
@@ -509,12 +512,12 @@ static void process_rpc_request(uint32_t proc, uint32_t xid,
 			} else {
 				MM_ERR("FW: ptr_status %d, rec_length=0x%08x,"
 				"RW: ptr_status %d, rec_length=0x%08x\n",
-				datacb_data->pkt.rw_data.fw_ptr_status, \
+				datacb_data->pkt.fw_data.fw_ptr_status, \
 				be32_to_cpu( \
 				datacb_data->pkt.fw_data.rec_length), \
-				datacb_data->pkt.rw_data.fw_ptr_status, \
+				datacb_data->pkt.rw_data.rw_ptr_status, \
 				be32_to_cpu( \
-				datacb_data->pkt.fw_data.rec_length));
+				datacb_data->pkt.rw_data.rec_length));
 			}
 			if (rec_status != RPC_VOC_REC_STAT_DONE) {
 				/* Not end of record */
@@ -644,6 +647,7 @@ static long audio_voicememo_ioctl(struct file *file,
 
 	if (cmd == AUDIO_GET_STATS) {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(stats));
 		mutex_lock(&audio->dsp_lock);
 		stats.byte_count = audio->byte_count;
 		stats.sample_count = audio->frame_count;
@@ -934,9 +938,6 @@ static int audio_voicememo_probe(struct platform_device *pdev)
 
 	return misc_register(&audio_voicememo_misc);
 err:
-	mutex_destroy(&the_audio_voicememo.lock);
-	mutex_destroy(&the_audio_voicememo.read_lock);
-	mutex_destroy(&the_audio_voicememo.dsp_lock);	
 	dma_free_coherent(NULL, MAX_VOICEMEMO_BUF_SIZE,
 		the_audio_voicememo.rec_buf_ptr,
 		the_audio_voicememo.phys);

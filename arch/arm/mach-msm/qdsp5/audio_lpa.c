@@ -1102,14 +1102,6 @@ static long audio_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		rc = -EPERM;
 		break;
 
-	case AUDIO_GET_SESSION_ID:
-		if (copy_to_user((void *) arg, &audio->dec_id,
-			sizeof(unsigned short)))
-			rc = -EFAULT;
-		else
-			rc = 0;
-		break;
-
 	default:
 		rc = -EINVAL;
 	}

@@ -109,18 +109,9 @@ struct snd_agc_ctl_msg {
 
 struct snd_endpoint *get_snd_endpoints(int *size);
 
-#if defined(CONFIG_SAMSUNG_ALLSOUND_MUTE)
-#define SND_MUTE_RxMUTED 3
-#define SND_MUTE_RxUNMUTED 4
-#endif
-
 static inline int check_mute(int mute)
 {
 	return (mute == SND_MUTE_MUTED ||
-#if defined(CONFIG_SAMSUNG_ALLSOUND_MUTE)
-		(mute == SND_MUTE_RxMUTED) ||
-		(mute == SND_MUTE_RxUNMUTED) ||
-#endif
 		mute == SND_MUTE_UNMUTED) ? 0 : -EINVAL;
 }
 
@@ -205,9 +196,8 @@ static long snd_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 		vmsg.args.device = cpu_to_be32(vol.device);
 		vmsg.args.method = cpu_to_be32(vol.method);
-		if (vol.method != SND_METHOD_VOICE &&
-			vol.method != SND_METHOD_MIDI){		
-			MM_ERR("set volume: invalid method:vol.method=%d\n",vol.method);
+		if (vol.method != SND_METHOD_VOICE) {
+			MM_ERR("set volume: invalid method\n");
 			rc = -EINVAL;
 			break;
 		}
@@ -507,8 +497,7 @@ static long snd_vol_enable(const char *arg)
 
 	vmsg.args.device = cpu_to_be32(vol.device);
 	vmsg.args.method = cpu_to_be32(vol.method);
-	if (vol.method != SND_METHOD_VOICE &&
-		vol.method != SND_METHOD_MIDI){
+	if (vol.method != SND_METHOD_VOICE) {
 		MM_ERR("snd_ioctl set volume: invalid method\n");
 		rc = -EINVAL;
 		return rc;

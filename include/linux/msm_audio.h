@@ -148,9 +148,6 @@
 #define VOC_REC_DOWNLINK	0x01
 #define VOC_REC_BOTH		0x02
 
-#define SND_METHOD_VOICE 0
-#define SND_METHOD_MIDI  4
-
 struct msm_audio_config {
 	uint32_t buffer_size;
 	uint32_t buffer_count;
@@ -247,6 +244,9 @@ struct msm_cad_device_config {
 
 #define CAD_SET_DEVICE _IOW(SND_IOCTL_MAGIC, 2, struct msm_cad_device_config *)
 
+#define SND_METHOD_VOICE 0
+#define SND_METHOD_MIDI 4
+
 struct msm_snd_volume_config {
 	uint32_t device;
 	uint32_t method;
@@ -302,9 +302,6 @@ struct msm_cad_endpoint {
  */
 
 #define CAD_GET_ENDPOINT _IOWR(SND_IOCTL_MAGIC, 5, struct msm_cad_endpoint *)
-
-/* Add mute function to remove noise on dualstanby project - soon9.lee */
-#define CAD_SET_MUTE _IOW(SND_IOCTL_MAGIC, 8, struct msm_cad_device_config *)
 
 struct msm_audio_pcm_config {
 	uint32_t pcm_feedback;	/* 0 - disable > 0 - enable */

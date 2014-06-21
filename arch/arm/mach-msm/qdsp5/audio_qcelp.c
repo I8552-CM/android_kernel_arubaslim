@@ -254,7 +254,7 @@ static int audqcelp_enable(struct audio *audio)
 		if (rc < 0) {
 			msm_adsp_dump(audio->audplay);
 			return rc;
-	}
+		}
 	}
 
 	if (msm_adsp_enable(audio->audplay)) {
