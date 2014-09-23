@@ -400,7 +400,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
                    -fsched-spec-load -mvectorize-with-neon-quad \
                    -fmodulo-sched -fmodulo-sched-allow-regmoves \
 		   -fno-delete-null-pointer-checks -Wno-array-bounds -Wno-maybe-uninitialized
-KBUILD_AFLAGS_KERNEL :=
+KBUILD_AFLAGS_KERNEL := -Wa,-mimplicit-it=thumb
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
 KBUILD_AFLAGS_MODULE  := -DMODULE
