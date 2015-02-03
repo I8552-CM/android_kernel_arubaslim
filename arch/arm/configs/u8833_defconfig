@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.104 Kernel Configuration
+# Linux/arm 3.4.105 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -166,6 +166,10 @@ CONFIG_ARCH_USE_BUILTIN_BSWAP=y
 CONFIG_KRETPROBES=y
 CONFIG_HAVE_KPROBES=y
 CONFIG_HAVE_KRETPROBES=y
+<<<<<<< HEAD
+=======
+CONFIG_HAVE_DMA_ATTRS=y
+>>>>>>> 177eb89... Squashed update of kernel from 3.4.104 to 3.4.105
 CONFIG_HAVE_DMA_CONTIGUOUS=y
 CONFIG_USE_GENERIC_SMP_HELPERS=y
 CONFIG_HAVE_REGS_AND_STACK_ACCESS_API=y
