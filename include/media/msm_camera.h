@@ -26,7 +26,7 @@
 #else
 #include <linux/time.h>
 #endif
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #define BIT(nr)   (1UL << (nr))
 
