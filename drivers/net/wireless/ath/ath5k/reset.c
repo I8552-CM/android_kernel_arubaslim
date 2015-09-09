@@ -419,10 +419,17 @@ static int ath5k_hw_wisoc_reset(struct ath5k_hw *ah, u32 flags)
 	}
 
 	/* Put BB/MAC into reset */
+<<<<<<< HEAD
 	regval = __raw_readl(reg);
 	__raw_writel(regval | val, reg);
 	regval = __raw_readl(reg);
 	udelay(100);
+=======
+	regval = ioread32(reg);
+	iowrite32(regval | val, reg);
+	regval = ioread32(reg);
+	udelay(100);	/* NB: should be atomic */
+>>>>>>> 1d95001... Squashed update of kernel from 3.4.107 to 3.4.108
 
 	/* Bring BB/MAC out of reset */
 	__raw_writel(regval & ~val, reg);
