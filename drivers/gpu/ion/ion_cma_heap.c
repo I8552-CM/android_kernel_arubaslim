@@ -21,6 +21,7 @@
 #include <linux/errno.h>
 #include <linux/err.h>
 #include <linux/dma-mapping.h>
+#include <linux/msm_ion.h>
 #include <mach/iommu_domains.h>
 
 #include <asm/cacheflush.h>
@@ -34,6 +35,7 @@ struct ion_cma_buffer_info {
 	void *cpu_addr;
 	dma_addr_t handle;
 	struct sg_table *table;
+	bool is_cached;
 };
 
 static int cma_heap_has_outer_cache;
@@ -72,7 +74,12 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		return ION_CMA_ALLOCATE_FAILED;
 	}
 
-	info->cpu_addr = dma_alloc_writecombine(dev, len, &(info->handle), 0);
+	if (!ION_IS_CACHED(flags))
+		info->cpu_addr = dma_alloc_writecombine(dev, len,
+					&(info->handle), 0);
+	else
+		info->cpu_addr = dma_alloc_nonconsistent(dev, len,
+					&(info->handle), 0);
 
 	if (!info->cpu_addr) {
 		dev_err(dev, "Fail to allocate buffer\n");
@@ -84,6 +91,8 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 		dev_err(dev, "Fail to allocate sg table\n");
 		goto err;
 	}
+
+	info->is_cached = ION_IS_CACHED(flags);
 
 	ion_cma_get_sgtable(dev,
 			info->table, info->cpu_addr, info->handle, len);
@@ -106,6 +115,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* release memory */
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
+	sg_free_table(info->table);
 	/* release sg table */
 	kfree(info->table);
 	kfree(info);
@@ -147,8 +157,12 @@ static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,
 	struct device *dev = buffer->heap->priv;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
-	return dma_mmap_writecombine(dev, vma, info->cpu_addr, info->handle,
-				 buffer->size);
+	if (info->is_cached)
+		return dma_mmap_nonconsistent(dev, vma, info->cpu_addr,
+				info->handle, buffer->size);
+	else
+		return dma_mmap_writecombine(dev, vma, info->cpu_addr,
+				info->handle, buffer->size);
 }
 
 static void *ion_cma_map_kernel(struct ion_heap *heap,
@@ -164,7 +178,6 @@ static void ion_cma_unmap_kernel(struct ion_heap *heap,
 {
 	return;
 }
-
 
 int ion_cma_map_iommu(struct ion_buffer *buffer,
 				struct ion_iommu_map *data,
@@ -182,13 +195,13 @@ int ion_cma_map_iommu(struct ion_buffer *buffer,
 	struct sg_table *table = info->table;
 	int prot = IOMMU_WRITE | IOMMU_READ;
 
+	data->mapped_size = iova_length;
+
 	if (!msm_use_iommu()) {
 		data->iova_addr = info->handle;
-		data->mapped_size = iova_length;
 		return 0;
 	}
 
-	data->mapped_size = iova_length;
 	extra = iova_length - buffer->size;
 
 	ret = msm_allocate_iova_address(domain_num, partition_num,
@@ -268,15 +281,30 @@ int ion_cma_cache_ops(struct ion_heap *heap,
 
 	switch (cmd) {
 	case ION_IOC_CLEAN_CACHES:
-		dmac_clean_range(vaddr, vaddr + length);
+		if (!vaddr)
+			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_TO_DEVICE);
+		else
+			dmac_clean_range(vaddr, vaddr + length);
 		outer_cache_op = outer_clean_range;
 		break;
 	case ION_IOC_INV_CACHES:
-		dmac_inv_range(vaddr, vaddr + length);
+		if (!vaddr)
+			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_FROM_DEVICE);
+		else
+			dmac_inv_range(vaddr, vaddr + length);
 		outer_cache_op = outer_inv_range;
 		break;
 	case ION_IOC_CLEAN_INV_CACHES:
-		dmac_flush_range(vaddr, vaddr + length);
+		if (!vaddr) {
+			dma_sync_sg_for_device(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_TO_DEVICE);
+			dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
+				buffer->sg_table->nents, DMA_FROM_DEVICE);
+		} else {
+			dmac_flush_range(vaddr, vaddr + length);
+		}
 		outer_cache_op = outer_flush_range;
 		break;
 	default:
