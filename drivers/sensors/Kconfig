@@ -1,0 +1,125 @@
+# 
+# Sensors core device. 
+#
+
+config SENSORS_CORE
+	tristate "Sensors core"
+	default n
+	help
+	  Say Y here to enable debugging messages for power supply class
+	  and drivers.
+
+config SENSORS_ALPS
+	tristate "Sensors Alps"
+	default n
+	help
+	  Say Y here to enable debugging messages for power supply class
+	  and drivers.
+
+config SENSORS_HSCD
+	depends on I2C
+	tristate "hscd alps mag"
+	default n
+	help
+	  This option enables hscd alps mag and bma222 accel driver.
+	  
+config SENSORS_HSCDTD006A
+	depends on I2C
+	tristate "hscd alps mag"
+	default n
+	help
+	  This option enables hscd alps mag and bma222 accel driver.
+	  
+config SENSORS_HSCDTD008A
+	depends on I2C
+	tristate "hscd alps mag"
+	default n
+	help
+	  This option enables hscd alps mag and bma222 accel driver.
+	  
+config SENSORS_BMA222
+	depends on I2C
+	tristate "bma222 accel"
+	default n
+	help
+	  This option enables hscd alps mag and bma222 accel driver.
+	  
+config SENSORS_BMA222E
+	depends on I2C
+	tristate "bma222e accel"
+	default n
+	help
+	  This option enables hscd alps mag and bma222 accel driver.
+
+config SENSORS_K2DH
+	tristate "K2DH acceleration sensor support"
+	depends on I2C
+	default n
+	help
+	  Driver for STMicroelectronic K2DH accelerometer.
+
+config SENSORS_ACC_FILTER
+	tristate "acceleration sensor filter support"
+	depends on I2C
+	default n
+	help
+	  Driver for 12bit accelerometer.
+
+config PROXIMITY_SENSOR
+	tristate "proximity_sensor"
+	default n
+	help
+	  This option enables magnetic sensors using mmc328x magnetic driver.
+
+config SENSORS_PX3215
+	tristate "Proximity sensor driver using PX3215"
+	default n
+	help
+	  This option enables proximity sensor using PX3215.
+
+config USE_BMA_INITLIB
+    tristate "bma init lib"
+    default n
+    depends on I2C
+    help
+      This option enable bma sensor using init code for i2c communication.
+      
+config SENSORS_BMA2X2
+	tristate "BMA255/BMA250E/BMA222E/BMA280 acceleration sensor support"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for Bosch Sensortec's 
+	  acceleration sensors BMA255/BMA250E/BMA222E/BMA280.
+
+
+config SENSORS_BMM050
+	tristate "BMM050 Magnetic Sensor Driver"
+	depends on I2C=y
+	help
+	 BMM050 Magnetic Sensor Driver implemented by Bosch-Sensortec.
+
+config INPUT_BMA2x2_ACC_ALERT_INT
+	tristate "BMA255/BMA250E/BMA222E/BMA280 acceleration sensor support"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for Bosch Sensortec's 
+	  acceleration sensors BMA255/BMA250E/BMA222E/BMA280.	      
+config USE_BMA_INITLIB
+	tristate "BMA255/BMA250E/BMA222E/BMA280 acceleration sensor support"
+	depends on I2C=y
+	help
+	  If you say yes here you get support for Bosch Sensortec's 
+	  acceleration sensors BMA255/BMA250E/BMA222E/BMA280.	      
+
+config SENSORS_GP2A030
+	depends on I2C
+	tristate "GP2AP030 driver"
+	default n
+	help
+	  This option enables proximity & light sensors using gp2ap030 driver.
+
+config SENSORS_GYRO_K3G
+	tristate "K3G driver"
+	default n
+	help
+	  This option enables gyro sensors using K3G driver.
