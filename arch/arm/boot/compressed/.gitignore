@@ -8,6 +8,7 @@ vmlinux
 vmlinux.lds
 *.lz4
 *.xz
+*.xzkern
 *.gzip
 *.lzo
 *.lzma
