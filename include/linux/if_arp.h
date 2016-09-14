@@ -169,4 +169,8 @@ static inline int arp_hdr_len(struct net_device *dev)
 }
 #endif
 
+#ifndef ARPHRD_6LOWPAN
+#define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
+#endif
+
 #endif	/* _LINUX_IF_ARP_H */

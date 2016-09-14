@@ -23,7 +23,7 @@
 #include <linux/compat-2.6.26.h>
 #include <linux/compat-2.6.27.h>
 #include <linux/compat-2.6.28.h>
-#include <linux/compat-2.6.29.h>
+//#include <linux/compat-2.6.29.h>
 #include <linux/compat-2.6.30.h>
 #include <linux/compat-2.6.31.h>
 #include <linux/compat-2.6.32.h>

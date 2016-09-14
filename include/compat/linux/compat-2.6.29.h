@@ -10,7 +10,7 @@
  * and we backport that there so inlcude that header first
  * as we need it for the netdev ops.
  */
-#include <linux/compat-2.6.32.h>
+#include <compat/linux/compat-2.6.32.h>
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29))
 

@@ -231,7 +231,7 @@ void hci_setup_sync(struct hci_conn *conn, __u16 handle)
 		cp.max_latency    = cpu_to_le16(0x000a);
 		cp.pkt_type = cpu_to_le16(conn->pkt_type);
 		cp.voice_setting  = cpu_to_le16(hdev->voice_setting);
-		if (lmp_esco_capable(conn->link)) {
+		if (lmp_esco_capable(conn->link) && conn->attempt < 2) {
 			cp.retrans_effort = 0x01;
 			BT_DBG("remote headset supports eSCO");
 		} else {
@@ -638,6 +638,13 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 	hci_conn_hold(acl);
 
 	if (acl->state == BT_OPEN || acl->state == BT_CLOSED) {
+		struct inquiry_entry *ie;
+		ie = hci_inquiry_cache_lookup(acl->hdev, &acl->dst);
+		if (ie && (!ie->data.ssp_mode || !acl->hdev->ssp_mode) &&
+				((ie->data.dev_class[1] & 0x1f) != 0x05)) {
+			__u8 auth = AUTH_ENABLED;
+			hci_send_cmd(hdev, HCI_OP_WRITE_AUTH_ENABLE, 1, &auth);
+		}
 		acl->sec_level = BT_SECURITY_LOW;
 		acl->pending_sec_level = sec_level;
 		acl->auth_type = auth_type;

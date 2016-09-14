@@ -2,9 +2,9 @@
  *
  *  Bluetooth HCI UART driver
  *
+ *  Copyright (C) 2000-2001  Qualcomm Incorporated
  *  Copyright (C) 2002-2003  Maxim Krasnyansky <maxk@qualcomm.com>
  *  Copyright (C) 2004-2005  Marcel Holtmann <marcel@holtmann.org>
- *  Copyright (c) 2000-2001, 2010, Code Aurora Forum. All rights reserved.
  *
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,10 @@
 #define HCI_UART_ATH3K	6
 
 #define HCI_UART_RAW_DEVICE	0
+#define HCI_UART_RESET_ON_INIT	1
+#define HCI_UART_CREATE_AMP	2
+#define HCI_UART_INIT_PENDING	3
+#define HCI_UART_EXT_CONFIG	4
 
 struct hci_uart;
 
@@ -65,6 +69,9 @@ struct hci_uart {
 	unsigned long		flags;
 	unsigned long		hdev_flags;
 
+	struct work_struct	init_ready;
+	struct work_struct	write_work;
+
 	struct hci_uart_proto	*proto;
 	void			*priv;
 
@@ -74,8 +81,8 @@ struct hci_uart {
 };
 
 /* HCI_UART proto flag bits */
-#define HCI_UART_PROTO_SET			0
-#define HCI_UART_PROTO_SET_IN_PROGRESS		1
+#define HCI_UART_PROTO_SET	0
+#define HCI_UART_REGISTERED	1
 
 /* TX states  */
 #define HCI_UART_SENDING	1
@@ -84,16 +91,15 @@ struct hci_uart {
 int hci_uart_register_proto(struct hci_uart_proto *p);
 int hci_uart_unregister_proto(struct hci_uart_proto *p);
 int hci_uart_tx_wakeup(struct hci_uart *hu);
+int hci_uart_init_ready(struct hci_uart *hu);
 
 #ifdef CONFIG_BT_HCIUART_H4
 int h4_init(void);
 int h4_deinit(void);
 #endif
 
-#ifdef CONFIG_BT_HCIUART_BCSP
 int bcsp_init(void);
 int bcsp_deinit(void);
-#endif
 
 #ifdef CONFIG_BT_HCIUART_LL
 int ll_init(void);
@@ -103,6 +109,11 @@ int ll_deinit(void);
 #ifdef CONFIG_BT_HCIUART_ATH3K
 int ath_init(void);
 int ath_deinit(void);
+#endif
+
+#ifdef CONFIG_BT_HCIUART_3WIRE
+int h5_init(void);
+int h5_deinit(void);
 #endif
 
 #ifdef CONFIG_BT_HCIUART_IBS
