@@ -205,7 +205,7 @@ static void cpufreq_interactivex_freq_change_time_work(struct work_struct *work)
 	cpumask_t tmp_mask = work_cpumask;
 	newtarget = freq_threshld;
 
-	for_each_cpu(cpu, tmp_mask) {
+	for_each_cpu(cpu, &tmp_mask) {
 	  if (!suspended) {
 		if (target_freq == policy->max) {
 			if (nr_running() == 1) {
