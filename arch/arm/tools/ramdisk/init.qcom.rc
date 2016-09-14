@@ -1,0 +1,492 @@
+# Copyright (c) 2014, The Linux Foundation. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are
+# met:
+#     * Redistributions of source code must retain the above copyright
+#       notice, this list of conditions and the following disclaimer.
+#     * Redistributions in binary form must reproduce the above
+#       copyright notice, this list of conditions and the following
+#       disclaimer in the documentation and/or other materials provided
+#       with the distribution.
+#     * Neither the name of The Linux Foundation nor the names of its
+#       contributors may be used to endorse or promote products derived
+#       from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+# BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+# WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+# IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+
+import init.qcom.bt.rc
+import init.device.rc
+import init.qcom.usb.rc
+
+on early-init
+    mount debugfs debugfs /sys/kernel/debug
+   on init
+    # See storage config details at http://source.android.com/tech/storage/
+    mkdir /mnt/shell/emulated 0700 shell shell
+    mkdir /storage/emulated 0555 root root
+
+    # External storage directories
+    mkdir /mnt/media_rw/sdcard1 0700 media_rw media_rw
+
+    mkdir /mnt/media_rw/usbdisk 0700 media_rw media_rw
+    mkdir /storage/sdcard1 0700 root root
+    mkdir /storage/usbdisk 0700 root root
+
+    export EXTERNAL_STORAGE /storage/emulated/legacy
+    export EMULATED_STORAGE_SOURCE /mnt/shell/emulated
+    export EMULATED_STORAGE_TARGET /storage/emulated
+    export SECONDARY_STORAGE /storage/sdcard1
+
+    # Support legacy paths
+    symlink /storage/emulated/legacy /sdcard
+    symlink /storage/emulated/legacy /mnt/sdcard
+    symlink /storage/emulated/legacy /storage/sdcard0
+    symlink /mnt/shell/emulated/0 /storage/emulated/legacy
+    symlink /storage/sdcard1 /external_sd
+    symlink /storage/sdcard1 /mnt/external_sd
+    symlink /storage/usbdisk /usbdisk
+    symlink /storage/usbdisk /mnt/usbdisk
+
+    mount ext4 /dev/block/mmcblk0p16 /efs nosuid nodev barrier=1
+    mount ext4 /dev/block/mmcblk0p12 /persist nosuid nodev barrier=1
+
+    mkdir /efs
+    mkdir /persist
+
+    # Bluetooth
+    #exec system/bin/btnvtool -O
+    #setprop ro.bt.bdaddr_path "/efs/bluetooth/bt_addr"
+    #setprop bluetooth.status off
+    #chown bluetooth bluetooth ro.bt.bdaddr_path
+    #chown bluetooth bluetooth /sys/class/rfkill/rfkill0/type
+    #chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
+    #chown bluetooth bluetooth /proc/bluetooth/sleep/proto
+    #chmod 0660 /sys/class/rfkill/rfkill0/state
+    #chmod 0660 /sys/class/rfkill/rfkill0/type
+    #chmod 0660 /proc/bluetooth/sleep/proto
+    #chown bluetooth bluetooth /dev/ttyHS0
+    #chmod 0660 /dev/ttyHS0
+    #chown bluetooth bluetooth /sys/devices/platform/msm_serial_hs.0/clock
+    #chmod 0660 /sys/devices/platform/msm_serial_hs.0/clock
+
+    exec system/bin/btnvtool -O
+    setprop ro.bt.bdaddr_path "/efs/bluetooth/bt_addr"
+    chown bluetooth bluetooth ro.bt.bdaddr_path
+    chown bluetooth bluetooth /sys/module/bluetooth_power/parameters/power
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/type
+    chown bluetooth bluetooth /sys/class/rfkill/rfkill0/state
+    chown bluetooth bluetooth /proc/bluetooth/sleep/proto
+    chown system system /sys/module/sco/parameters/disable_esco
+    chown bluetooth bluetooth /sys/module/hci_smd/parameters/hcismd_set
+    chmod 0660 /sys/module/bluetooth_power/parameters/power
+    chmod 0660 /sys/module/hci_smd/parameters/hcismd_set
+    chmod 0660 /sys/class/rfkill/rfkill0/state
+    chmod 0660 /proc/bluetooth/sleep/proto
+    chown bluetooth bluetooth /dev/ttyHS0
+    chmod 0660 /dev/ttyHS0
+    chown bluetooth bluetooth /sys/devices/platform/msm_serial_hs.0/clock
+    chmod 0660 /sys/devices/platform/msm_serial_hs.0/clock
+
+    chmod 0660 /dev/ttyHS2
+    chown bluetooth bluetooth /dev/ttyHS2
+
+    ## EFS and persist
+    chown system radio /efs
+    chmod 0771 /efs
+    chown 755 /persist
+
+    #port-bridge
+    chmod 0660 /dev/smd0
+    chown system system /dev/smd0
+
+    chmod 0444 /sys/devices/platform/msm_hsusb/gadget/usb_state
+
+    # For bridgemgr daemon to inform the USB driver of the correct transport
+    chown radio radio /sys/class/android_usb/f_rmnet_smd_sdio/transport
+
+    # To allow interfaces to get v6 address when tethering is enabled
+    write /proc/sys/net/ipv6/conf/rmnet0/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet1/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet2/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet3/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet4/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet5/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet6/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet7/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio0/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio1/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio2/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio3/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio4/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio5/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio6/accept_ra 2
+    write /proc/sys/net/ipv6/conf/rmnet_sdio7/accept_ra 2
+
+    # Create QMUX deamon socket area
+    mkdir /dev/socket/qmux_radio 0770 radio radio
+    chmod 2770 /dev/socket/qmux_radio
+    mkdir /dev/socket/qmux_audio 0770 media audio
+    chmod 2770 /dev/socket/qmux_audio
+    mkdir /dev/socket/qmux_bluetooth 0770 bluetooth bluetooth
+    chmod 2770 /dev/socket/qmux_bluetooth
+    mkdir /dev/socket/qmux_gps 0770 gps gps
+    chmod 2770 /dev/socket/qmux_gps
+
+    chown system system /sys/kernel/logger/log_main/enable
+    chown system system /sys/kernel/logger/log_events/enable
+    chown system system /sys/kernel/logger/log_radio/enable
+    chown system system /sys/kernel/logger/log_main/priority
+    chown system system /sys/kernel/logger/log_events/priority
+    chown system system /sys/kernel/logger/log_radio/priority
+
+    chmod 664 /dev/input/event1
+    chmod 664 /dev/input/event2
+
+    chown system system /sys/devices/platform/msm_hsusb/gadget/fixusb
+
+    # Lights
+    chown system system /sys/class/sec/led/led_blink
+    chown system system /sys/class/sec/led/led_pattern
+    chown system system /sys/class/sec/sec_touchkey/brightness
+    chown system system /sys/class/leds/battery-led/brightness
+    chown system system /sys/class/misc/backlightnotification/enabled
+    chown system system /sys/class/leds/lcd-backlight/brightness
+    chown system system /sys/class/leds/keyboard-backlight/brightness
+    chown system camera /sys/class/leds/flashlight/brightness
+    chmod 0777 /sys/class/misc/backlightnotification/enabled
+    chmod 0777 /sys/class/leds/lcd-backlight/brightness
+    chmod 0777 /sys/class/leds/keyboard-backlight/brightness
+    chmod 0777 /sys/class/leds/flashlight/brightness
+    chmod 0777 /sys/class/sec/led/led_blink
+    chmod 0777 /sys/class/sec/led/led_pattern
+    chmod 0777 /sys/class/leds/battery-led/brightness
+    chmod 0664 /sys/devices/virtual/sec/ts/brightness
+    chmod 0777 /sys/class/sec/sec_touchkey/brightness
+    chown system system /sys/devices/virtual/sec/ts/brightness
+    write /data/misc/wifi/fwpath ""
+    chmod 0666 /data/misc/wifi/fwpath
+    chown system camera /sys/class/camera/rear/rear_flash
+    chmod 0777 /sys/class/camera/rear/rear_flash
+
+   # Sensors
+#geomagnetic sensor
+    chown system system /sys/class/input/input4/chip_id
+    chown system system /sys/class/input/input4/raw_data
+    chown system system /sys/class/input/input4/op_mode
+    chown system system /sys/class/input/input4/selftest
+    chown system system /sys/class/input/input4/value
+    chown system system /sys/class/input/input4/enable
+    chown system system /sys/class/input/input4/delay
+    chown system system /sys/class/input/input4/rept_xy
+    chown system system /sys/class/input/input4/rept_z  
+    chown system system /sys/class/input/input4/odr
+    chown system system /sys/class/input/input4/layout
+    chown system system /sys/class/input/input4/value_raw
+    
+    chmod 0664 /sys/class/input/input4/layout
+    chmod 0664 /sys/class/input/input4/chip_id
+    chmod 0664 /sys/class/input/input4/raw_data
+    chmod 0664 /sys/class/input/input4/op_mode
+    chmod 0664 /sys/class/input/input4/selftest
+    chmod 0664 /sys/class/input/input4/value
+    chmod 0664 /sys/class/input/input4/value_raw
+        
+    chown system system /sys/class/sensors/magnetic_sensor/chip_id
+    chown system system /sys/class/sensors/magnetic_sensor/raw_data
+    chown system system /sys/class/sensors/magnetic_sensor/op_mode
+    chown system system /sys/class/sensors/magnetic_sensor/selftest
+    chown system system /sys/class/sensors/magnetic_sensor/value
+    chown system system /sys/class/sensors/magnetic_sensor/enable
+    chown system system /sys/class/sensors/magnetic_sensor/delay
+    chown system system /sys/class/sensors/magnetic_sensor/rept_xy
+    chown system system /sys/class/sensors/magnetic_sensor/rept_z  
+    chown system system /sys/class/sensors/magnetic_sensor/odr
+    chown system system /sys/class/sensors/magnetic_sensor/layout
+    chown system system /sys/class/sensors/magnetic_sensor/value_raw
+    
+    chmod 0664 /sys/class/sensors/magnetic_sensor/layout
+    chmod 0664 /sys/class/sensors/magnetic_sensor/chip_id
+    chmod 0664 /sys/class/sensors/magnetic_sensor/raw_data
+    chmod 0664 /sys/class/sensors/magnetic_sensor/op_mode
+    chmod 0664 /sys/class/sensors/magnetic_sensor/selftest
+    chmod 0664 /sys/class/sensors/magnetic_sensor/value
+    chmod 0664 /sys/class/sensors/magnetic_sensor/value_raw
+    
+#acc sensor
+    chown system system /sys/class/input/input3/raw_data
+    chown system system /sys/class/input/input3/value
+    chown system system /sys/class/input/input3/fast_calibration_x
+    chown system system /sys/class/input/input3/fast_calibration_y
+    chown system system /sys/class/input/input3/fast_calibration_z
+    chown system system /sys/class/input/input3/eeprom_writing
+    chown system system /sys/class/input/input3/mode
+    chown system system /sys/class/input/input3/enable
+    chown system system /sys/class/input/input3/offset_filt_x
+    chown system system /sys/class/input/input3/offset_filt_y
+    chown system system /sys/class/input/input3/offset_filt_z
+    chown system system /sys/class/input/input3/selftest
+    chown system system /sys/class/input/input3/delay
+    chown system system /sys/class/input/input3/update
+    chown system system /sys/class/input/input3/range
+    chown system system /sys/class/input/input3/bandwidth
+    chown system system /sys/class/input/input3/layout
+
+    chmod 0664 /sys/class/input/input3/layout
+    chmod 0664 /sys/class/input/input3/raw_data
+    chmod 0664 /sys/class/input/input3/value
+    chmod 0664 /sys/class/input/input3/fast_calibration_x
+    chmod 0664 /sys/class/input/input3/fast_calibration_y
+    chmod 0664 /sys/class/input/input3/fast_calibration_z
+    chmod 0664 /sys/class/input/input3/eeprom_writing
+    chmod 0664 /sys/class/input/input3/enable
+
+    chmod 0664 /sys/devices/virtual/input/input3/calibration
+    chmod 0664 /sys/devices/virtual/input/input3/enable_int 
+    chmod 0664 /sys/devices/virtual/input/input3/fifo_framecount 
+    chmod 0664 /sys/devices/virtual/input/input3/fifo_mode
+    chmod 0664 /sys/devices/virtual/input/input3/fifo_trig_src
+    chmod 0664 /sys/devices/virtual/input/input3/flat_hold_time
+    chmod 0664 /sys/devices/virtual/input/input3/flat_theta 
+    chmod 0664 /sys/devices/virtual/input/input3/high_g_duration 
+    chmod 0664 /sys/devices/virtual/input/input3/high_g_threshold
+    chmod 0664 /sys/devices/virtual/input/input3/low_g_duration
+    chmod 0664 /sys/devices/virtual/input/input3/low_g_threshold 
+    chmod 0664 /sys/devices/virtual/input/input3/offset_x 
+    chmod 0664 /sys/devices/virtual/input/input3/offset_y
+    chmod 0664 /sys/devices/virtual/input/input3/offset_z 
+    chmod 0664 /sys/devices/virtual/input/input3/range
+    chmod 0664 /sys/devices/virtual/input/input3/reactive_alert
+    chmod 0664 /sys/devices/virtual/input/input3/selftest 
+    chmod 0664 /sys/devices/virtual/input/input3/slope_duration
+    chmod 0664 /sys/devices/virtual/input/input3/slope_no_mot_threshold 
+    chmod 0664 /sys/devices/virtual/input/input3/slope_threshold
+    chmod 0664 /sys/devices/virtual/input/input3/softreset 
+    chmod 0664 /sys/devices/virtual/input/input3/tap_quiet
+    chmod 0664 /sys/devices/virtual/input/input3/tap_samp 
+    chmod 0664 /sys/devices/virtual/input/input3/tap_shock
+#acc sensor
+    chown system system /sys/class/sensors/accelerometer_sensor/raw_data
+    chown system system /sys/class/sensors/accelerometer_sensor/value
+    chown system system /sys/class/sensors/accelerometer_sensor/fast_calibration_x
+    chown system system /sys/class/sensors/accelerometer_sensor/fast_calibration_y
+    chown system system /sys/class/sensors/accelerometer_sensor/fast_calibration_z
+    chown system system /sys/class/sensors/accelerometer_sensor/eeprom_writing
+    chown system system /sys/class/sensors/accelerometer_sensor/mode
+    chown system system /sys/class/sensors/accelerometer_sensor/enable
+    chown system system /sys/class/sensors/accelerometer_sensor/offset_filt_x
+    chown system system /sys/class/sensors/accelerometer_sensor/offset_filt_y
+    chown system system /sys/class/sensors/accelerometer_sensor/offset_filt_z
+    chown system system /sys/class/sensors/accelerometer_sensor/selftest
+    chown system system /sys/class/sensors/accelerometer_sensor/delay
+    chown system system /sys/class/sensors/accelerometer_sensor/update
+    chown system system /sys/class/sensors/accelerometer_sensor/range
+    chown system system /sys/class/sensors/accelerometer_sensor/bandwidth
+    chown system system /sys/class/sensors/accelerometer_sensor/reactive_alert
+    chown system system /sys/class/sensors/accelerometer_sensor/calibration
+    chown system system /sys/class/sensors/accelerometer_sensor/layout
+    
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/layout    
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/raw_data
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/value
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/fast_calibration_x
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/fast_calibration_y
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/fast_calibration_z
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/eeprom_writing
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/enable
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/selftest
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/calibration
+    chmod 0664 /sys/class/sensors/accelerometer_sensor/reactive_alert
+    
+    chown system system /efs/calibration_data    
+    chmod 0666 /efs/calibration_data
+
+#proximity sensor
+    chown system system /sys/class/input/input2/enable
+    chmod 0664 /sys/class/input/input2/enable
+
+    chown system system /sys/class/sensors/proximity_sensor/enable
+    chown system system /sys/class/sensors/proximity_sensor/state
+    chown system system /sys/class/sensors/proximity_sensor/name
+    chown system system /sys/class/sensors/proximity_sensor/vendor
+    chown system system /sys/class/sensors/proximity_sensor/prox_cal
+
+    chmod 0664 /sys/class/sensors/proximity_sensor/enable
+    chmod 0664 /sys/class/sensors/proximity_sensor/state
+    chmod 0664 /sys/class/sensors/proximity_sensor/name
+    chmod 0664 /sys/class/sensors/proximity_sensor/vendor
+    chmod 0664 /sys/class/sensors/proximity_sensor/prox_cal
+
+    chown system system /efs/prox_cal    
+    chmod 0666 /efs/prox_cal
+
+service sensord /system/bin/sensord
+	class main
+	user system
+	group system
+#    oneshot
+#    start sensord
+
+# BMC050 compass/accelerometer daemon
+service sensord /system/bin/sensord
+    class main
+    oneshot
+
+    # Camera
+    chown system radio /sys/class/camera/rear/rear_camfw
+    chown system radio /sys/class/camera/rear/rear_camtype
+    chown system radio /sys/class/camera/front/front_camfw
+    chown system radio /sys/class/camera/front/front_camtype
+
+    # TelephonyManager.java requires this
+    chmod 0644 /proc/cmdline
+
+    write /sys/devices/system/cpu/cpufreq/ondemand/sampling_rate 25000
+    write /sys/devices/system/cpu/cpufreq/ondemand/up_threshold 80
+    write /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq 320000
+
+    write /sys/devices/platform/msm_sdcc.1/idle_timeout 10
+    write /sys/module/lowmemorykiller/parameters/adj 0,1,2,4,9,12
+    write /proc/sys/vm/min_free_kbytes 5120
+    write /proc/sys/vm/page-cluster 0
+
+    write /sys/module/pm2/modes/cpu0/standalone_power_collapse/idle_enabled 1
+    write /sys/module/pm2/modes/cpu1/standalone_power_collapse/idle_enabled 1
+    write /sys/module/pm2/modes/cpu0/standalone_power_collapse/suspend_enabled 1
+    write /sys/module/pm2/modes/cpu1/standalone_power_collapse/suspend_enabled 1
+    write /sys/module/pm2/modes/cpu0/power_collapse/suspend_enabled 1
+    write /sys/module/pm2/modes/cpu0/power_collapse/idle_enabled 1
+
+on emmc-fs
+    # mount mmc partitions
+    mount_all /fstab.qcom
+
+# msm specific files that need to be created on /data
+on post-fs-data
+    # Create log system
+    mkdir /data/log 0775 system log
+
+    mkdir /data/misc/radio 0775 radio system
+    mkdir /data/radio 0770 radio radio
+
+    mkdir /data/misc/bluetooth 0770 bluetooth bluetooth
+    mkdir /data/misc/bluetoothd 0770 bluetooth bluetooth
+
+    # Create directory used by audio subsystem
+    mkdir /data/misc/audio 0770 audio audio
+
+    # we will remap this as /storage/sdcard with the sdcard fuse tool
+    mkdir /data/media 0770 media_rw media_rw
+    chown media_rw media_rw /data/media
+
+    setprop vold.post_fs_data_done 1
+
+    # Create the directories used by the Wireless subsystem
+    mkdir /efs/bluetooth 0775 radio system
+    # Create the directories used by the Wireless subsystem
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    mkdir /data/misc/wifi/wpa_supplicant 0775 wifi wifi
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    chown dhcp dhcp /data/misc/dhcp
+
+    # Create directory used by audio subsystem
+    mkdir /data/misc/audio 0770 audio audio
+
+    chmod 0664 /sys/devices/platform/msm_sdcc.1/polling
+    chmod 0664 /sys/devices/platform/msm_sdcc.2/polling
+    chmod 0664 /sys/devices/platform/msm_sdcc.3/polling
+    chmod 0664 /sys/devices/platform/msm_sdcc.4/polling
+
+    # Chown polling nodes as needed from UI running on system server
+    chown system system /sys/devices/platform/msm_sdcc.1/polling
+    chown system system /sys/devices/platform/msm_sdcc.2/polling
+    chown system system /sys/devices/platform/msm_sdcc.3/polling
+    chown system system /sys/devices/platform/msm_sdcc.4/polling
+
+    # Create directories for wiper services
+    mkdir /data/wpstiles/ 0755 shell
+    mkdir /data/wiper 0755 gps qcom_oncrpc
+
+    chown system system /sys/class/android_usb/android0/f_mass_storage/lun/file
+    chmod 0660 /sys/class/android_usb/android0/f_mass_storage/lun/file
+    chown system system /sys/class/android_usb/android0/f_rndis/ethaddr
+    chmod 0660 /sys/class/android_usb/android0/f_rndis/ethaddr
+
+    setprop vold.post_fs_data_done 1
+
+on property:wlan.driver.status=unloaded
+    start hwmac
+
+service rmt_oeminfo /system/bin/rmt_oeminfo
+    class core
+
+# create virtual SD card at /storage/sdcard, based on the /data/media directory
+# daemon will drop to user/group system/media_rw after initializing
+# underlying files in /data/media will be created with user and group media_rw (1023)
+service sdcard /system/bin/sdcard -u 1023 -g 1023 -l /data/media /mnt/shell/emulated
+    class late_start
+
+# fusewrapped external sdcard daemon running as media_rw (1023)
+service fuse_sdcard1 /system/bin/sdcard -u 1023 -g 1023 -d /mnt/media_rw/sdcard1 /storage/sdcard1
+    class late_start
+    disabled
+
+service netmgrd /system/bin/netmgrd
+    class main
+
+service oem_rpc_svc /system/bin/oem_rpc_svc
+    class main
+
+service qmuxd /system/bin/qmuxd
+    class main
+    user radio
+    group radio audio bluetooth gps qcom_diag
+
+service ril-daemon1 /system/bin/rild -c 1
+    class main
+    socket rild1 stream 660 root radio
+    socket rild-debug1 stream 660 radio system
+    user root
+    disabled
+    group radio cache inet misc audio sdcard_rw qcom_oncrpc diag
+
+on property:ro.multi.rild=true
+    start ril-daemon1
+
+#service post_boot /system/bin/sh /init.qcom.ril.sh
+#   class late_start
+#   user root
+#   disabled
+#   oneshot
+
+service qcom-c_main-sh /system/bin/sh /init.qcom.class_main.sh
+    class main
+    user root
+    oneshot
+
+service qcamerasvr /system/bin/mm-qcamera-daemon
+    class late_start
+    user camera
+    group camera system inet input
+
+service charger /charger
+    class charger
+    user root
+    group root
+    oneshot
+
+on property:sys.boot_completed=1
+    write /sys/block/mmcblk0/queue/scheduler sioplus
+

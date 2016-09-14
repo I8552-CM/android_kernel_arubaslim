@@ -1,0 +1,53 @@
+#!/bin/bash
+PS3='Please enter your choice: '
+options=("COMPILE" "FLASH" "Quit")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "COMPILE")
+chmod 775 arch/arm/tools/mkbootimg
+make -j4 delos_defconfig
+make -j4 
+mkdir system
+mkdir system/lib/
+mkdir system/lib/modules
+rsync -r `find -type f -name "*.ko"` system/lib/modules
+cp arch/arm/boot/zImage arch/arm/tools/zImage
+mv system arch/arm/tools/
+cd arch/arm/tools
+cd ramdisk
+find . | cpio -o -H newc | gzip > ../boot.img-ramdisk.gz
+cd ..
+./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk.gz --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
+zip -r tmp META-INF boot.img system
+rm -rf system boot.img zImage boot.img-ramdisk.gz
+mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.0-UNOFFICIAL-delos3geur.zip 
+clear
+            ;;
+        "FLASH")
+#echo "rebooting recovery"
+#adb shell "su -c 'reboot recovery'"
+echo "Waiting for device"
+adb wait-for-device
+mkdir tmp 
+cp kernel-$(date +%Y%m%d)-3.4.0-UNOFFICIAL-delos3geur.zip tmp/
+cd tmp
+unzip *.zip
+echo "PUSHING BOOT.IMG"
+adb push boot.img /sdcard/boot.img
+echo "Flashing "
+adb shell "su -c 'dd if=/sdcard/boot.img of=/dev/block/mmcblk0p8'"
+adb shell rm /sdcard/boot.img
+adb shell "su -c 'reboot'"
+cd ..
+rm -rf tmp
+clear
+;;
+        "Quit")
+            break
+            ;;
+        *) echo invalid option;;
+
+    esac
+done
+

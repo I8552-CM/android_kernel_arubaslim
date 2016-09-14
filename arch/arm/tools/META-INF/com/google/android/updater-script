@@ -1,0 +1,13 @@
+assert(getprop("ro.product.device") == "delos3geur" ||
+getprop("ro.build.product") == "delos3geur" || 
+getprop("ro.product.device") == "I8552" ||
+getprop("ro.build.product") == "I8552" || 
+getprop("ro.product.device") == "GT-I8552" ||
+getprop("ro.build.product") == "GT-I8552" || 
+getprop("ro.product.device") == "msm7267" ||
+getprop("ro.build.product") == "hawaii" ||
+abort("This package is for device: delos3geur,I8552,GT-I8552,msm7267; this device is " + getprop("ro.product.device") + "."););
+mount("ext4", "EMMC", "/dev/block/mmcblk0p21", "/system");
+package_extract_file("boot.img", "/dev/block/mmcblk0p8");
+package_extract_dir("system", "/system");
+show_progress(0.100000, 0);
