@@ -117,8 +117,8 @@ static inline unsigned int get_cpu_idle_time(unsigned int cpu)
 		add_nice = kcpustat_cpu(cpu).cpustat[CPUTIME_NICE];
 
 	ret = kcpustat_cpu(cpu).cpustat[CPUTIME_STEAL];
-		kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
-		add_nice;
+		//kcpustat_cpu(cpu).cpustat[CPUTIME_IRQ];
+		//add_nice;
 
 	return ret;
 }
