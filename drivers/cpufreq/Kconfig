@@ -85,6 +85,13 @@ config CPU_FREQ_DEFAULT_GOV_INTERACTIVEX
 	  loading your cpufreq low-level hardware driver, using the
 	  'interactiveX' governor for latency-sensitive workloads.
 
+config CPU_FREQ_DEFAULT_GOV_LULZACTIVE
+	bool "lulzactive"
+	select CPU_FREQ_GOV_LULZACTIVE
+	select CPU_FREQ_GOV_PERFORMANCE
+	help
+	  Use the CPUFreq governor 'lulzactive' as default.
+
 config CPU_FREQ_DEFAULT_GOV_ONDEMAND
 	bool "ondemand"
 	select CPU_FREQ_GOV_ONDEMAND
@@ -173,6 +180,16 @@ config CPU_FREQ_GOV_INTERACTIVEX
 	  'interactiveX' - Modified version of interactive with sleep+wake code.
 
 	   If in doubt, say N.
+
+config CPU_FREQ_GOV_LULZACTIVE
+	tristate "'lulzactive' cpufreq governor"
+	depends on CPU_FREQ
+	help
+	  'lulzactive' - a new interactive governor by Tegrak!
+	  For more information please visit:
+	  http://tegrak2x.blogspot.com/2011/11/lulzactive-governor-v2.html
+
+	  If in doubt, say N.
 
 config CPU_FREQ_GOV_ONDEMAND
 	tristate "'ondemand' cpufreq policy governor"
