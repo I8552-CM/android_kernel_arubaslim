@@ -1063,7 +1063,7 @@ void __init msm8x25_kgsl_3d0_init(void)
 
 		kgsl_3d0_pdata.pwrlevel[0].bus_freq = 200000000;
 	} else	if (cpu_is_msm8625q()) {
-			kgsl_3d0_pdata.num_levels = 4;
+			kgsl_3d0_pdata.num_levels = 5;
 
 			kgsl_3d0_pdata.pwrlevel[4].gpu_freq = 1000000000;
 			kgsl_3d0_pdata.pwrlevel[4].gpu_freq = 900000000;
