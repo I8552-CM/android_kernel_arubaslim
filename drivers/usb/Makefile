@@ -2,6 +2,10 @@
 # Makefile for the kernel USB device drivers.
 #
 
+# dirty OTG fix
+KBUILD_CFLAGS	+= -Wno-error=implicit-function-declaration
+KBUILD_CFLAGS	+= -Wimplicit-function-declaration
+
 # Object files in subdirectories
 
 obj-$(CONFIG_USB)		+= core/
