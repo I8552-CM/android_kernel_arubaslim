@@ -425,5 +425,5 @@ obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
 obj-$(CONFIG_MSM_FIQ) += msm7k_fiq.o
 obj-$(CONFIG_MSM_FIQ) += msm7k_fiq_handler.o
-
+obj-$(CONFIG_TURBO_BOOST) += msm_turbo.o
 obj-$(CONFIG_SEC_LOG_LAST_KMSG) += sec_log.o
