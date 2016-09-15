@@ -239,14 +239,26 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	spin_unlock_bh(&dsi_clk_lock);
 
 	mipi_dsi_unprepare_clocks();
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
-		mipi_dsi_pdata->dsi_power_save(0);
-
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id == LCD_IC_ID_ONE) {
+#endif
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+			mipi_dsi_pdata->dsi_power_save(0);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	}
+#endif
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_client_reset)
-		mipi_dsi_pdata->dsi_client_reset();
-#endif	
-
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_client_reset)
+			mipi_dsi_pdata->dsi_client_reset();
+#endif
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
+#endif
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+			mipi_dsi_pdata->dsi_power_save(0);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	}
+#endif
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
@@ -287,9 +299,14 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 RETRY_MIPI_DSI_ON:
 
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
-		mipi_dsi_pdata->dsi_power_save(1);
-
+#if 0
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
+#endif
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+			mipi_dsi_pdata->dsi_power_save(1);
+#if 0
+	}
+#endif
 	cont_splash_clk_ctrl(0);
 	mipi_dsi_prepare_clocks();
 
@@ -403,32 +420,37 @@ RETRY_MIPI_DSI_ON:
 		mutex_lock(&mfd->dma->ov_mutex);
 	else
 		down(&mfd->dma->mutex);
-
-	if (need_set_op_mode_before_panel_on)
-		mipi_dsi_op_mode_config(mipi->mode); // call this function before panel_next_on 
-
+#if defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL) || defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
+	mipi_dsi_op_mode_config(mipi->mode); // call this function before panel_next_on 
+#endif
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	ret = panel_next_on(pdev);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
+#endif
 
-	if(!ret && retry_count > 0) {
-		retry_count--;
-		if (mdp_rev >= MDP_REV_41)
-			mutex_unlock(&mfd->dma->ov_mutex);
-		else
-			up(&mfd->dma->mutex);
+		if (!ret && retry_count > 0) {
+			retry_count--;
+			if (mdp_rev >= MDP_REV_41)
+				mutex_unlock(&mfd->dma->ov_mutex);
+			else
+				up(&mfd->dma->mutex);
 
-		mipi_dsi_off(pdev);
+			mipi_dsi_off(pdev);
 
-		goto RETRY_MIPI_DSI_ON;
+			goto RETRY_MIPI_DSI_ON;
+		}
+
+		ret = 0;
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
 	}
-
-	ret = 0;
+#endif
 #else
 	ret = panel_next_on(pdev);
 #endif
-
-	if (!need_set_op_mode_before_panel_on)
-		mipi_dsi_op_mode_config(mipi->mode);
+#if !defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL) && !defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
+	mipi_dsi_op_mode_config(mipi->mode);
+#endif
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {

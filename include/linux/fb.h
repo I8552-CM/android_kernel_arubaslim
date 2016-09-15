@@ -1176,6 +1176,17 @@ extern int fb_find_mode(struct fb_var_screeninfo *var,
 			const struct fb_videomode *default_mode,
 			unsigned int default_bpp);
 
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+typedef enum {
+	LCD_IC_NOT_KNOW,
+	LCD_IC_ID_ONE,
+	LCD_IC_ID_TWO,
+	LCD_IC_MAX
+} LCD_IC_ID;
+
+extern int lcd_ic_id;
+#endif
+
 #endif /* __KERNEL__ */
 
 #endif /* _LINUX_FB_H */

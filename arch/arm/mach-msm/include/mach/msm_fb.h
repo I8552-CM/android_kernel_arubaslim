@@ -17,6 +17,9 @@
 #ifndef _MSM_FB_H_
 #define _MSM_FB_H_
 
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+#include <linux/fb.h>
+#endif
 #include <linux/device.h>
 
 struct mddi_info;

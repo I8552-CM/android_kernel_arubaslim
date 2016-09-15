@@ -389,6 +389,8 @@ obj-$(CONFIG_MSM_FAKE_BATTERY) += fish_battery.o
 obj-$(CONFIG_MSM_RPC_VIBRATOR) += msm_vibrator.o
 obj-$(CONFIG_MSM_NATIVE_RESTART) += restart.o
 obj-$(CONFIG_MSM_MODEM_RESTART) += restart_7k.o
+obj-$(CONFIG_BRICKED_HOTPLUG) += bricked_hotplug.o
+obj-$(CONFIG_INTELLI_PLUG)    += intelli_plug.o
 
 obj-$(CONFIG_MSM_PROC_COMM_REGULATOR) += proccomm-regulator.o
 ifdef CONFIG_MSM_PROC_COMM_REGULATOR
@@ -416,5 +418,9 @@ obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
 obj-$(CONFIG_MSM_FIQ) += msm7k_fiq.o
 obj-$(CONFIG_MSM_FIQ) += msm7k_fiq_handler.o
+<<<<<<< HEAD
 obj-$(CONFIG_TURBO_BOOST) += msm_turbo.o
+=======
+
+>>>>>>> 3882c65... Rev2_Add_Display_Driver_etc
 obj-$(CONFIG_SEC_LOG_LAST_KMSG) += sec_log.o

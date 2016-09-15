@@ -27,6 +27,9 @@
 #include "devices.h"
 #include "board-msm7627a.h"
 
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+#include <linux/fb.h>
+#endif
 
 #if defined(CONFIG_MACH_DELOS_OPEN) || defined(CONFIG_MACH_DELOS_CTC) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
 #include <mach/gpio_delos.h>
@@ -505,7 +508,10 @@ static struct resource msm_v4l2_video_overlay_resources[] = {
 #define LCDC_TOSHIBA_FWVGA_PANEL_NAME   "lcdc_toshiba_fwvga_pt"
 #define MIPI_CMD_RENESAS_FWVGA_PANEL_NAME       "mipi_cmd_renesas_fwvga"
 
-#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) 
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+#define LCD_PANEL_NAME_ONE      "mipi_video_nt35502_wvga"
+#define LCD_PANEL_NAME_TWO       "mipi_video_hx8369b_wvga"
+#elif defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL)
 #define LCD_PANEL_NAME       "mipi_video_hx8369b_wvga"
 #elif defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
 #define LCD_PANEL_NAME       "mipi_cmd_hx8357_smd_hvga"
@@ -515,13 +521,48 @@ static struct resource msm_v4l2_video_overlay_resources[] = {
 #define LCD_PANEL_NAME       "mipi_cmd_nt35510_wvga"
 #endif
 
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
 
+int lcd_ic_id = LCD_IC_NOT_KNOW;
+extern char lcd_id[6];
+#endif
 static int msm_fb_detect_panel(const char *name)
 {
 	int ret = -ENODEV;
 
-	if (!strncmp(name, LCD_PANEL_NAME, strnlen(LCD_PANEL_NAME, PANEL_NAME_MAX_LEN)))
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+
+	pr_info("[LCD] LCD_ID : %c%c%c%c%c%c\n",
+		lcd_id[0], lcd_id[1], lcd_id[2], lcd_id[3],
+		lcd_id[4], lcd_id[5]);
+
+	if (lcd_id[0] == '5' && lcd_id[1] == '5'
+		&& lcd_id[2] == '8' && lcd_id[3] == 'C'
+		&& lcd_id[4] == 'C' && lcd_id[5] == '0'){
+		lcd_ic_id = LCD_IC_ID_ONE;
+	}
+
+
+	if (lcd_ic_id == LCD_IC_ID_ONE) {
+		if (!strncmp(name, LCD_PANEL_NAME_ONE,
+			strnlen(LCD_PANEL_NAME_ONE, PANEL_NAME_MAX_LEN))) {
+			pr_info("[LCD] %s, %d, Detected PANEL NAME ONE\n",
+				__func__, __LINE__);
+			ret = 0;
+		}
+	} else {
+		if (!strncmp(name, LCD_PANEL_NAME_TWO,
+			strnlen(LCD_PANEL_NAME_TWO, PANEL_NAME_MAX_LEN))) {
+			pr_info("[LCD] %s, %d, Detected PANEL NAME TWO\n",
+			__func__, __LINE__);
+			ret = 0;
+		}
+	}
+#else
+	if (!strncmp(name, LCD_PANEL_NAME,
+		strnlen(LCD_PANEL_NAME, PANEL_NAME_MAX_LEN)))
 		ret = 0;
+#endif
 
 
 /* QCT
@@ -1390,7 +1431,8 @@ static struct regulator_bulk_data regs_dsi[] = {
 */
 
 // Samsung
-#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL)
+#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) \
+	|| defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
 static int mipi_dsi_panel_msm_power(int on)
 {
 	int rc = 0;

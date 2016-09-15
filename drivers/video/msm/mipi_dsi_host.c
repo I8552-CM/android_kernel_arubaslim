@@ -900,8 +900,16 @@ void mipi_dsi_host_init(struct mipi_panel_info *pinfo, char dlane_swap)
 
 	/* from frame buffer, low power mode */
 	/* DSI_COMMAND_MODE_DMA_CTRL */
-#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL)	
-	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);
+#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL)
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
+#endif
+		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x10000000);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	} else {
+		MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
+	}
+#endif
 #else
 	MIPI_OUTP(MIPI_DSI_BASE + 0x38, 0x14000000);
 #endif

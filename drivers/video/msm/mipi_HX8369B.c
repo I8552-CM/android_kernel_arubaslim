@@ -743,9 +743,17 @@ static void hx8369b_disp_powerdown(void)
 #define CHECK_TEMPERATURE	0
 int get_lcd_temperature=0;
 
+#if CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL
+char lcd_id[6] = {0};
+EXPORT_SYMBOL(lcd_id);
+#endif
 static int __init hx8369b_lcd_read_id(char *param)
 {
 	int index, digit, negative;
+#if CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL
+	pr_info("[LCD] %s, %d. LCD ID %c\n", __func__, __LINE__, param[2]);
+	memcpy(lcd_id, param, sizeof(lcd_id));
+#endif
 	if(param[0]=='5'&&param[1]=='5'&&param[2]=='4'&&param[3]=='8'&&param[4]=='9'&&param[5]=='0') {
 		hx8369b_read_id=HX8369B_AUO_554890;
 		DPRINT("AUO1\n");

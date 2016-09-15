@@ -207,6 +207,10 @@ config FB_MSM_MIPI_DSI_NOVATEK
         select FB_MSM_MIPI_DSI
         default n
 
+config FB_MSM_MIPI_DSI_NT35502
+	bool
+	select FB_MSM_MIPI_DSI
+
 config FB_MSM_MIPI_DSI_NT35510
 	bool
 	select FB_MSM_MIPI_DSI
@@ -389,6 +393,11 @@ config FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 	select FB_MSM_MIPI_DSI_NT35510
 	default n
 
+config FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT
+	bool
+	select FB_MSM_MIPI_DSI_NT35502
+	default n
+
 config FB_MSM_MIPI_HX8369B_WVGA_PT
 	bool
 	select FB_MSM_MIPI_DSI_HX8369B
@@ -468,7 +477,7 @@ config FB_MSM_WRITEBACK_MSM_PANEL
         bool "MDP overlay write back panel enable"
 	---help---
 	  Support for MDP4 OVERLAY write back mode
-choice
+
 	prompt "LCD Panel"
 	default FB_MSM_MDDI_AUTO_DETECT
 
@@ -586,6 +595,7 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_NT35510_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
+	select FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_HX8369B_WVGA_PT
 	select FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT
 	select FB_MSM_MIPI_ORISE_VIDEO_720P_PT
@@ -744,6 +754,10 @@ config FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL
 	bool "MIPI NT35510 Command WVGA PT Panel"
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 
+config FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL
+	bool "MIPI NT35502 Video WVGA PT Panel"
+	select FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT
+
 config FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	bool "MIPI HX8369B Video WVGA PT Panel"
 	select FB_MSM_MIPI_HX8369B_WVGA_PT
@@ -784,7 +798,6 @@ config FB_MSM_PANEL_NONE
 	bool "NONE"
 	---help---
 	  This will disable LCD panel
-endchoice
 
 choice
 	prompt "Secondary LCD Panel"
