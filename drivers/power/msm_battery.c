@@ -870,7 +870,7 @@ struct msm_battery_info {
 	struct power_supply *msm_psy_batt;
 	struct power_supply *current_ps;	/*nc*/
 
-	struct alarm		alarm;
+	struct android_alarm		alarm;
 	struct msm_rpc_client *batt_client;
 	struct msm_rpc_endpoint *chg_ep;
 
@@ -2230,7 +2230,7 @@ static void msm_batt_set_alarm(int seconds)
 
 	pr_info("%s[BATT] set alarm\n", __func__);
 	next = ktime_add(msm_batt_info.last_poll, low_interval);
-	alarm_start_range(&msm_batt_info.alarm, next,
+	android_alarm_start_range(&msm_batt_info.alarm, next,
 				ktime_add(next, slack));
 
 }
@@ -4542,7 +4542,7 @@ static int msm_batt_cleanup(void)
 	if (msm_batt_info.pdata->register_callbacks)
 		msm_batt_info.pdata->register_callbacks(NULL);
 
-	alarm_cancel(&msm_batt_info.alarm);
+	android_alarm_cancel(&msm_batt_info.alarm);
 	del_timer_sync(&msm_batt_info.timer);
 	if (msm_batt_cable_wq) {
 		pr_info("%s : msm_batt_cable_wq is destoryed.\n", __func__);
@@ -5005,7 +5005,7 @@ static int __devinit msm_batt_probe(struct platform_device *pdev)
 	power_supply_changed(&msm_psy_ac);
 	power_supply_changed(&msm_psy_usb);
 
-	alarm_init(&msm_batt_info.alarm,
+	android_alarm_init(&msm_batt_info.alarm,
 			ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP,
 			msm_batt_alarm_manager);
 		queue_work(msm_batt_info.msm_batt_wq,
