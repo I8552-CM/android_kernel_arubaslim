@@ -1834,6 +1834,18 @@ config MSM_CPU_FREQ_MIN
 
 endif # CPU_FREQ_MSM
 
+config GPU_OC
+  	bool "GPU OC option for Delos3geur"
+   	default n
+   	help
+     	  Unlock the overclock freq speed
+
+config GPU_OC_STOCK
+  	bool "Restore GPU  frequency option for Delos3geur"
+   	default n
+   	help
+     	  Unlock the overclock freq speed
+
 config MSM_CPU_AVS
 	bool "Enable software controlled Adaptive Voltage Scaling (AVS)"
 	depends on (ARCH_MSM_SCORPION && QSD_SVS)
