@@ -22,4 +22,4 @@ gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
 ./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
 zip -r tmp META-INF boot.img system
 rm -rf system boot.img zImage mkbootimg
-mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.0-UNOFFICIAL-delos3geur.zip 
+mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.82-UNOFFICIAL-delos3geur.zip 
