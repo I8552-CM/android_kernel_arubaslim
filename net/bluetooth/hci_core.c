@@ -4201,6 +4201,8 @@ void hci_unregister_dev(struct hci_dev *hdev)
 
 	cancel_work_sync(&hdev->power_on);
 
+	cancel_work_sync(&hdev->power_on);
+
 	if (!test_bit(HCI_INIT, &hdev->flags) &&
 	    !test_bit(HCI_SETUP, &hdev->dev_flags) &&
 	    !test_bit(HCI_CONFIG, &hdev->dev_flags)) {

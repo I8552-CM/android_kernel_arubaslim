@@ -287,6 +287,7 @@ static struct ath_buf *ath_tx_get_buffer(struct ath_softc *sc)
 	}
 
 	bf = list_first_entry(&sc->tx.txbuf, struct ath_buf, list);
+	bf->bf_next = NULL;
 	list_del(&bf->list);
 
 	spin_unlock_bh(&sc->tx.txbuflock);
@@ -368,7 +369,7 @@ static void ath_tx_complete_aggr(struct ath_softc *sc, struct ath_txq *txq,
 	u16 seq_st = 0, acked_cnt = 0, txfail_cnt = 0;
 	u32 ba[WME_BA_BMP_SIZE >> 5];
 	int isaggr, txfail, txpending, sendbar = 0, needreset = 0, nbad = 0;
-	bool rc_update = true;
+	bool rc_update = true, isba;
 	struct ieee80211_tx_rate rates[4];
 	struct ath_frame_info *fi;
 	int nframes;
@@ -766,8 +767,11 @@ static enum ATH_AGGR_STATUS ath_tx_form_aggr(struct ath_softc *sc,
 		if (!fi->bf)
 			bf = ath_tx_setup_buffer(sc, txq, tid, skb);
 
-		if (!bf)
+		if (!bf) {
+			__skb_unlink(skb, &tid->buf_q);
+			ieee80211_free_txskb(sc->hw, skb);
 			continue;
+		}
 
 		bf->bf_state.bf_type = BUF_AMPDU | BUF_AGGR;
 		seqno = bf->bf_state.seqno;
@@ -877,6 +881,7 @@ static void ath_buf_set_rate(struct ath_softc *sc, struct ath_buf *bf,
 	struct ieee80211_tx_rate *rates;
 	const struct ieee80211_rate *rate;
 	struct ieee80211_hdr *hdr;
+	struct ath_frame_info *fi = get_frame_info(bf->bf_mpdu);
 	int i;
 	u8 rix = 0;
 
@@ -938,13 +943,13 @@ static void ath_buf_set_rate(struct ath_softc *sc, struct ath_buf *bf,
 		}
 
 		/* legacy rates */
+		rate = &sc->sbands[tx_info->band].bitrates[rates[i].idx];
 		if ((tx_info->band == IEEE80211_BAND_2GHZ) &&
 		    !(rate->flags & IEEE80211_RATE_ERP_G))
 			phy = WLAN_RC_PHY_CCK;
 		else
 			phy = WLAN_RC_PHY_OFDM;
 
-		rate = &sc->sbands[tx_info->band].bitrates[rates[i].idx];
 		info->rates[i].Rate = rate->hw_value;
 		if (rate->hw_value_short) {
 			if (rates[i].flags & IEEE80211_TX_RC_USE_SHORT_PREAMBLE)
@@ -1673,8 +1678,10 @@ static void ath_tx_send_ampdu(struct ath_softc *sc, struct ath_atx_tid *tid,
 	}
 
 	bf = ath_tx_setup_buffer(sc, txctl->txq, tid, skb);
-	if (!bf)
+	if (!bf) {
+		ieee80211_free_txskb(sc->hw, skb);
 		return;
+	}
 
 	bf->bf_state.bf_type = BUF_AMPDU;
 	INIT_LIST_HEAD(&bf_head);
@@ -1725,10 +1732,22 @@ static void setup_frame_info(struct ieee80211_hw *hw, struct sk_buff *skb,
 	struct ieee80211_sta *sta = tx_info->control.sta;
 	struct ieee80211_key_conf *hw_key = tx_info->control.hw_key;
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *)skb->data;
+	const struct ieee80211_rate *rate;
 	struct ath_frame_info *fi = get_frame_info(skb);
 	struct ath_node *an = NULL;
 	enum ath9k_key_type keytype;
+	bool short_preamble = false;
 
+	/*
+	 * We check if Short Preamble is needed for the CTS rate by
+	 * checking the BSS's global flag.
+	 * But for the rate series, IEEE80211_TX_RC_USE_SHORT_PREAMBLE is used.
+	 */
+	if (tx_info->control.vif &&
+	    tx_info->control.vif->bss_conf.use_short_preamble)
+		short_preamble = true;
+
+	rate = ieee80211_get_rts_cts_rate(hw, tx_info);
 	keytype = ath9k_cmn_get_hw_crypto_keytype(skb);
 
 	if (sta)
@@ -1743,6 +1762,9 @@ static void setup_frame_info(struct ieee80211_hw *hw, struct sk_buff *skb,
 		fi->keyix = ATH9K_TXKEYIX_INVALID;
 	fi->keytype = keytype;
 	fi->framelen = framelen;
+	fi->rtscts_rate = rate->hw_value;
+	if (short_preamble)
+		fi->rtscts_rate |= rate->hw_value_short;
 }
 
 u8 ath_txchainmask_reduction(struct ath_softc *sc, u8 chainmask, u32 rate)
@@ -1797,16 +1819,12 @@ static struct ath_buf *ath_tx_setup_buffer(struct ath_softc *sc,
 		ath_err(ath9k_hw_common(sc->sc_ah),
 			"dma_mapping_error() on TX\n");
 		ath_tx_return_buffer(sc, bf);
-		goto error;
+		return NULL;
 	}
 
 	fi->bf = bf;
 
 	return bf;
-
-error:
-	dev_kfree_skb_any(skb);
-	return NULL;
 }
 
 /* FIXME: tx power */
