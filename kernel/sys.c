@@ -53,9 +53,29 @@
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/unistd.h>
+#include "../arch/arm/mach-msm/smd_private.h"
+#include "../arch/arm/mach-msm/include/mach/proc_comm.h"
+#include <mach/msm_iomap.h>
+#include <asm/io.h>
+
+struct smem_info {
+	unsigned int info;
+};
+
+extern struct smem_info *smem_flag;
+
+#define POWER_OFF_TIME ( 40* HZ ) // 40 secs
+
+void power_off_registertimer(struct timer_list* ptimer, unsigned long timeover );
+void power_off_timeout(unsigned long arg);
+
+struct timer_list power_off_timer;
 
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a,b)	(-EINVAL)
+#endif
+#ifndef PF_NO_SETAFFINITY
+#define PF_NO_SETAFFINITY		PF_THREAD_BOUND
 #endif
 #ifndef GET_UNALIGN_CTL
 # define GET_UNALIGN_CTL(a,b)	(-EINVAL)
@@ -322,6 +342,7 @@ void kernel_restart_prepare(char *cmd)
 	device_shutdown();
 }
 
+
 /**
  *	register_reboot_notifier - Register function to be called at reboot time
  *	@nb: Info about notifier function to be called
@@ -361,11 +382,49 @@ EXPORT_SYMBOL(unregister_reboot_notifier);
  *	Shutdown everything and perform a clean reboot.
  *	This is not safe to call in interrupt context.
  */
+
+void power_off_registertimer(struct timer_list* ptimer, unsigned long timeover )
+{
+	printk("%s\n",__func__);
+	init_timer(ptimer);
+	ptimer->expires = get_jiffies_64() + timeover;
+	ptimer->data = (long) NULL;
+	ptimer->function = power_off_timeout;
+	add_timer(ptimer);
+}
+
+void power_off_timeout(unsigned long arg)
+{
+printk("%s\n",__func__);
+	//smem_flag->info = 0xAEAEAEAE;
+	//msm_proc_comm_reset_modem_now();
+	machine_power_off();
+}
+
+static void migrate_to_reboot_cpu(void)
+{
+	/* The boot cpu is always logical cpu 0 */
+	int cpu = 0;
+
+	cpu_hotplug_disable();
+
+	/* Make certain the cpu I'm about to reboot on is online */
+	if (!cpu_online(cpu))
+		cpu = cpumask_first(cpu_online_mask);
+
+	/* Prevent races with other tasks migrating this task */
+	current->flags |= PF_NO_SETAFFINITY;
+
+	/* Make certain I only run on the appropriate processor */
+	set_cpus_allowed_ptr(current, cpumask_of(cpu));
+}
+
+
 void kernel_restart(char *cmd)
 {
 	printk("[kernel_restart] START.\n");
 	kernel_restart_prepare(cmd);
-	disable_nonboot_cpus();
+	migrate_to_reboot_cpu();
 	syscore_shutdown();
 	if (!cmd)
 		printk(KERN_EMERG "Restarting system.\n");
@@ -393,7 +452,7 @@ static void kernel_shutdown_prepare(enum system_states state)
 void kernel_halt(void)
 {
 	kernel_shutdown_prepare(SYSTEM_HALT);
-	disable_nonboot_cpus();
+	migrate_to_reboot_cpu();
 	syscore_shutdown();
 	printk(KERN_EMERG "System halted.\n");
 	kmsg_dump(KMSG_DUMP_HALT);
@@ -401,6 +460,9 @@ void kernel_halt(void)
 }
 
 EXPORT_SYMBOL_GPL(kernel_halt);
+
+/* Add backwards compatibility for stable trees. */
+
 
 /**
  *	kernel_power_off - power_off the system
@@ -410,10 +472,11 @@ EXPORT_SYMBOL_GPL(kernel_halt);
 void kernel_power_off(void)
 {
 	printk("[kernel_power_off] START.\n");
+	power_off_registertimer(&power_off_timer, POWER_OFF_TIME);
 	kernel_shutdown_prepare(SYSTEM_POWER_OFF);
 	if (pm_power_off_prepare)
 		pm_power_off_prepare();
-	disable_nonboot_cpus();
+	migrate_to_reboot_cpu();
 	syscore_shutdown();
 	printk(KERN_EMERG "Power down.\n");
 	kmsg_dump(KMSG_DUMP_POWEROFF);
