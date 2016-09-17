@@ -26,11 +26,6 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/irq.h>
 
-#include <asm/irq.h>
-
-#ifdef CONFIG_SEC_DEBUG
-#include <linux/sec_debug.h>
-#endif
 /*
    - No shared variables, all the data are CPU local.
    - If a softirq needs serialization, let it serialize itself
@@ -222,7 +217,16 @@ asmlinkage void __do_softirq(void)
 	__u32 pending;
 	unsigned long end = jiffies + MAX_SOFTIRQ_TIME;
 	int cpu;
+	unsigned long old_flags = current->flags;
+	int max_restart = MAX_SOFTIRQ_RESTART;
 
+	/*
+	 * Mask out PF_MEMALLOC s current task context is borrowed for the
+	 * softirq. A softirq handled such as network RX might set PF_MEMALLOC
+	 * again if the socket is related to swap
+	 */
+	current->flags &= ~PF_MEMALLOC;
+	
 	pending = local_softirq_pending();
 	account_system_vtime(current);
 
@@ -247,11 +251,19 @@ restart:
 			kstat_incr_softirqs_this_cpu(vec_nr);
 
 			trace_softirq_entry(vec_nr);
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-			sec_debug_timer_log(6666, (int)irqs_disabled(),\
-					(void *)h->action);
-#endif /* CONFIG_SEC_DEBUG_SCHED_LOG */
+			/* merge qcom DEBUG_CODE for RPC crashes */
+            #ifdef CONFIG_HUAWEI_RPC_CRASH_DEBUG
+			timetick = softirq_read_timestamp();  
+			softirq_ts[softirq_idx].softirq=(unsigned int)h;
+			softirq_ts[softirq_idx].ts=timetick; 			
+			softirq_ts[softirq_idx].state=1; 
+            #endif
 			h->action(h);
+            #ifdef CONFIG_HUAWEI_RPC_CRASH_DEBUG
+			softirq_ts[softirq_idx].state=3;
+			softirq_idx = (softirq_idx + 1)%128;	
+            #endif
+
 			trace_softirq_exit(vec_nr);
 			if (unlikely(prev_count != preempt_count())) {
 				printk(KERN_ERR "huh, entered softirq %u %s %p"
@@ -486,13 +498,7 @@ static void tasklet_action(struct softirq_action *a)
 			if (!atomic_read(&t->count)) {
 				if (!test_and_clear_bit(TASKLET_STATE_SCHED, &t->state))
 					BUG();
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-				sec_debug_irq_sched_log(-1, t->func, 3);
-#endif /* CONFIG_SEC_DEBUG_SCHED_LOG */
 				t->func(t->data);
-#ifdef CONFIG_SEC_DEBUG_SCHED_LOG
-				sec_debug_irq_sched_log(-1, t->func, 4);
-#endif /* CONFIG_SEC_DEBUG_SCHED_LOG */
 				tasklet_unlock(t);
 				continue;
 			}
