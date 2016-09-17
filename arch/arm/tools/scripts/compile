@@ -1,5 +1,6 @@
 #!/bin/bash
 #chmod 775 arch/arm/tools/mkbootimg
+version=110
 make -j4 delos_defconfig
 make -j4 
 mkdir system
@@ -22,4 +23,4 @@ gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
 ./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
 zip -r tmp META-INF boot.img system
 rm -rf system boot.img zImage mkbootimg
-mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.82-UNOFFICIAL-delos3geur.zip 
+mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.$version-UNOFFICIAL-delos3geur.zip 
