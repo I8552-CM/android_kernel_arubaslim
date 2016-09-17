@@ -1,6 +1,6 @@
 #!/bin/bash
 #echo "rebooting recovery"
-version=110
+version=112
 #adb shell "su -c 'reboot recovery'"
 echo "Waiting for device"
 adb wait-for-device

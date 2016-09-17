@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.110 Kernel Configuration
+# Linux/arm 3.4.112 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -2878,7 +2878,6 @@ CONFIG_USB_MSM_OTG_72K=y
 CONFIG_MMC=y
 # CONFIG_MMC_DEBUG is not set
 CONFIG_MMC_PERF_PROFILING=y
-CONFIG_HUAWEI_WIFI_SDCC=y
 CONFIG_MMC_UNSAFE_RESUME=y
 CONFIG_MMC_CLKGATE=y
 # CONFIG_MMC_EMBEDDED_SDIO is not set
@@ -3043,7 +3042,6 @@ CONFIG_STAGING=y
 # CONFIG_LINE6_USB is not set
 # CONFIG_VT6656 is not set
 # CONFIG_IIO is not set
-CONFIG_QCACHE=y
 CONFIG_ZSMALLOC=y
 # CONFIG_PGTABLE_MAPPING is not set
 # CONFIG_WLAGS49_H2 is not set

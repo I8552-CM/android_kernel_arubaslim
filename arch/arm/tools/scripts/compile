@@ -1,6 +1,6 @@
 #!/bin/bash
 #chmod 775 arch/arm/tools/mkbootimg
-version=110
+version=112
 make -j4 delos_defconfig
 make -j4 
 mkdir system
