@@ -304,11 +304,11 @@ static ssize_t pyra_sysfs_write_settings(struct file *fp,
 	struct usb_device *usb_dev = interface_to_usbdev(to_usb_interface(dev));
 	int retval = 0;
 	int difference;
-<<<<<<< HEAD
-=======
+
+
 	struct pyra_roccat_report roccat_report;
 	struct pyra_settings const *settings;
->>>>>>> ce2591a... Squashed update of kernel from 3.4.106 to 3.4.107
+
 
 	if (off != 0 || count != sizeof(struct pyra_settings))
 		return -EINVAL;
