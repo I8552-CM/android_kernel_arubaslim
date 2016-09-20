@@ -1272,11 +1272,9 @@ static struct i2c_board_info stc_i2c2_boardinfo[] = {
 
 #ifdef CONFIG_CHARGER_FAN54013
 #define MSM_CHARGER_I2C_BUS_ID	7
-#if defined(CONFIG_MACH_ARUBASLIMQ_OPEN_CHN)
 #define GPIO_CHARGER_SCL 	9
 #define GPIO_CHARGER_SDA 	10
 #define GPIO_CHARGER_STAT	112
-#endif
 
 static struct i2c_gpio_platform_data charger_i2c_gpio_data = {
 	.sda_pin		= GPIO_CHARGER_SDA,
