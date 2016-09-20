@@ -1,11 +1,11 @@
 #!/bin/bash
 #echo "rebooting recovery"
-version=112
+version=7
 #adb shell "su -c 'reboot recovery'"
 echo "Waiting for device"
 adb wait-for-device
 mkdir tmp 
-cp kernel-$(date +%Y%m%d)-3.4.$version-UNOFFICIAL-delos3geur.zip  tmp/
+cp kernel-$(date +%Y%m%d)-3.5.$version-UNOFFICIAL-delos3geur.zip  tmp/
 cd tmp
 unzip *.zip
 echo "PUSHING BOOT.IMG"

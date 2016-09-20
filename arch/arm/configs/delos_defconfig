@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm 3.4.112 Kernel Configuration
+# Linux/arm 3.5.7 Kernel Configuration
 #
 CONFIG_ARM=y
 CONFIG_ARM_HAS_SG_CHAIN=y
@@ -148,7 +148,6 @@ CONFIG_PERF_USE_VMALLOC=y
 # Kernel Performance Events And Counters
 #
 CONFIG_PERF_EVENTS=y
-# CONFIG_PERF_COUNTERS is not set
 # CONFIG_DEBUG_PERF_USE_VMALLOC is not set
 CONFIG_VM_EVENT_COUNTERS=y
 # CONFIG_SLUB_DEBUG is not set
@@ -3303,6 +3302,7 @@ CONFIG_ENABLE_MUST_CHECK=y
 CONFIG_FRAME_WARN=1024
 CONFIG_MAGIC_SYSRQ=y
 # CONFIG_STRIP_ASM_SYMS is not set
+# CONFIG_READABLE_ASM is not set
 # CONFIG_UNUSED_SYMBOLS is not set
 CONFIG_DEBUG_FS=y
 # CONFIG_HEADERS_CHECK is not set
