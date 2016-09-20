@@ -633,7 +633,7 @@ static int __init hci_uart_init(void)
 	h5_init();
 #endif
 
-#ifdef CONFIG_MACH_DELOS_OPEN
+#ifdef CONFIG_BT_HCIUART_3WIRE
 	ibs_init();
 #endif
 
@@ -659,7 +659,7 @@ static void __exit hci_uart_exit(void)
 #ifdef CONFIG_BT_HCIUART_3WIRE
 	h5_deinit();
 #endif
-#ifdef CONFIG_MACH_DELOS_OPEN
+#ifdef CONFIG_BT_HCIUART_3WIRE
 	ibs_deinit();
 #endif
 
