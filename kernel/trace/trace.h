@@ -131,6 +131,7 @@ struct trace_array_cpu {
 	atomic_t		disabled;
 	void			*buffer_page;	/* ring buffer spare */
 
+	unsigned long		entries;
 	unsigned long		saved_latency;
 	unsigned long		critical_start;
 	unsigned long		critical_end;
@@ -152,7 +153,6 @@ struct trace_array_cpu {
  */
 struct trace_array {
 	struct ring_buffer	*buffer;
-	unsigned long		entries;
 	int			cpu;
 	int			buffer_disabled;
 	cycle_t			time_start;
@@ -832,6 +832,8 @@ extern const char *__stop___trace_bprintk_fmt[];
 
 int trace_keep_overwrite(struct tracer *tracer, u32 mask, int set);
 int set_tracer_flag(unsigned int mask, int enabled);
+
+void trace_printk_init_buffers(void);
 
 #undef FTRACE_ENTRY
 #define FTRACE_ENTRY(call, struct_name, id, tstruct, print, filter)	\
