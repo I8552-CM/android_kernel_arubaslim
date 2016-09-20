@@ -200,17 +200,13 @@ module_param(qlen, uint, S_IRUGO|S_IWUSR);
  * descriptors are built on demand.
  */
 
-#define STRING_MANUFACTURER		1
-#define STRING_PRODUCT			2
-#define STRING_SERIALNUM		3
+#define STRING_MANUFACTURER		0
+#define STRING_PRODUCT			1
+#define STRING_SERIALNUM		2
 
 /* holds our biggest descriptor */
 #define USB_DESC_BUFSIZE		256
 #define USB_BUFSIZE			8192
-
-/* This device advertises one configuration. */
-#define DEV_CONFIG_VALUE		1
-#define	PRINTER_INTERFACE		0
 
 static struct usb_device_descriptor device_desc = {
 	.bLength =		sizeof device_desc,
@@ -337,9 +333,9 @@ static char				pnp_string [1024] =
 
 /* static strings, in UTF-8 */
 static struct usb_string		strings [] = {
-	{ STRING_MANUFACTURER,	manufacturer, },
-	{ STRING_PRODUCT,	product_desc, },
-	{ STRING_SERIALNUM,	serial_num, },
+	[STRING_MANUFACTURER].s = manufacturer,
+	[STRING_PRODUCT].s = product_desc,
+	[STRING_SERIALNUM].s =	serial_num,
 	{  }		/* end of list */
 };
 
@@ -1017,25 +1013,13 @@ set_interface(struct printer_dev *dev, unsigned number)
 	int			result = 0;
 
 	/* Free the current interface */
-	switch (dev->interface) {
-	case PRINTER_INTERFACE:
-		printer_reset_interface(dev);
-		break;
-	}
+	printer_reset_interface(dev);
 
-	switch (number) {
-	case PRINTER_INTERFACE:
-		result = set_printer_interface(dev);
-		if (result) {
-			printer_reset_interface(dev);
-		} else {
-			dev->interface = PRINTER_INTERFACE;
-		}
-		break;
-	default:
-		result = -EINVAL;
-		/* FALL THROUGH */
-	}
+	result = set_printer_interface(dev);
+	if (result)
+		printer_reset_interface(dev);
+	else
+		dev->interface = number;
 
 	if (!result)
 		INFO(dev, "Using interface %x\n", number);
@@ -1220,7 +1204,7 @@ printer_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		switch (ctrl->bRequest) {
 		case 0: /* Get the IEEE-1284 PNP String */
 			/* Only one printer interface is supported. */
-			if ((wIndex>>8) != PRINTER_INTERFACE)
+			if ((wIndex>>8) != dev->interface)
 				break;
 
 			value = (pnp_string[0]<<8)|pnp_string[1];
@@ -1231,7 +1215,7 @@ printer_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 
 		case 1: /* Get Port Status */
 			/* Only one printer interface is supported. */
-			if (wIndex != PRINTER_INTERFACE)
+			if (wIndex != dev->interface)
 				break;
 
 			*(u8 *)req->buf = dev->printer_status;
@@ -1240,7 +1224,7 @@ printer_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 
 		case 2: /* Soft Reset */
 			/* Only one printer interface is supported. */
-			if (wIndex != PRINTER_INTERFACE)
+			if (wIndex != dev->interface)
 				break;
 
 			printer_soft_reset(dev);
@@ -1349,15 +1333,20 @@ static int __init
 printer_bind(struct usb_gadget *gadget)
 {
 	struct printer_dev	*dev;
-	struct usb_ep		*in_ep, *out_ep;
 	int			status = -ENOMEM;
 	int			gcnum;
 	size_t			len;
 	u32			i;
 	struct usb_request	*req;
 
+	usb_ep_autoconfig_reset(gadget);
+
 	dev = &usb_printer_gadget;
 
+
+	status = usb_add_function(c, &dev->function);
+	if (status)
+		return status;
 
 	/* Setup the sysfs files for the printer gadget. */
 	dev->pdev = device_create(usb_gadget_class, NULL, g_printer_devno,

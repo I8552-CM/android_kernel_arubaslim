@@ -2935,12 +2935,20 @@ void em28xx_card_setup(struct em28xx *dev)
 }
 
 
-#if defined(CONFIG_MODULES) && defined(MODULE)
 static void request_module_async(struct work_struct *work)
 {
 	struct em28xx *dev = container_of(work,
 			     struct em28xx, request_module_wk);
 
+	/*
+	 * The em28xx extensions can be modules or builtin. If the
+	 * modules are already loaded or are built in, those extensions
+	 * can be initialised right now. Otherwise, the module init
+	 * code will do it.
+	 */
+	em28xx_init_extension(dev);
+
+#if defined(CONFIG_MODULES) && defined(MODULE)
 	if (dev->has_audio_class)
 		request_module("snd-usb-audio");
 	else if (dev->has_alsa_audio)
@@ -2960,10 +2968,6 @@ static void flush_request_modules(struct em28xx *dev)
 {
 	flush_work_sync(&dev->request_module_wk);
 }
-#else
-#define request_modules(dev)
-#define flush_request_modules(dev)
-#endif /* CONFIG_MODULES */
 
 /*
  * em28xx_release_resources()
@@ -3392,13 +3396,6 @@ static int em28xx_usb_probe(struct usb_interface *interface,
 	   open the device before fully initializing it
 	 */
 	mutex_unlock(&dev->lock);
-
-	/*
-	 * These extensions can be modules. If the modules are already
-	 * loaded then we can initialise the device now, otherwise we
-	 * will initialise it when the modules load instead.
-	 */
-	em28xx_init_extension(dev);
 
 	return 0;
 

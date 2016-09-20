@@ -352,6 +352,12 @@ static int synaptics_set_mode(struct psmouse *psmouse)
 		return -1;
 	}
 
+	/* Convert wrap-around values to negative */
+	if (hw->x > X_MAX_POSITIVE)
+		hw->x -= 1 << ABS_POS_BITS;
+	if (hw->y > Y_MAX_POSITIVE)
+		hw->y -= 1 << ABS_POS_BITS;
+
 	return 0;
 }
 

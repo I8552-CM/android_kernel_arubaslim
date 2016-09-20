@@ -1760,6 +1760,7 @@ void radeon_atombios_init_crtc(struct drm_device *dev,
 		else
 			radeon_crtc->crtc_offset = 0;
 	}
+done:
 	radeon_crtc->pll_id = -1;
 	drm_crtc_helper_add(&radeon_crtc->base, &atombios_helper_funcs);
 }

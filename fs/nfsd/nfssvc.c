@@ -329,6 +329,7 @@ static int nfsd_get_default_max_blksize(void)
 int nfsd_create_serv(struct net *net)
 {
 	int error;
+	struct net *net = current->nsproxy->net_ns;
 
 	WARN_ON(!mutex_is_locked(&nfsd_mutex));
 	if (nfsd_serv) {

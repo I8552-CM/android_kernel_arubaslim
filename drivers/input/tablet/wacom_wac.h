@@ -56,8 +56,6 @@ enum {
 	PTU,
 	PL,
 	DTU,
-	BAMBOO_PT,
-	WIRELESS,
 	INTUOS,
 	INTUOS3S,
 	INTUOS3,

@@ -1692,6 +1692,7 @@ net_get_stats(struct net_device *dev)
 {
 	struct net_local *lp = netdev_priv(dev);
 	unsigned long flags;
+	u16 cfg;
 
 	spin_lock_irqsave(&lp->lock, flags);
 	/* Update the statistics from the device registers. */

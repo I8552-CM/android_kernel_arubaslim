@@ -115,6 +115,10 @@ static int jffs2_sync_fs(struct super_block *sb, int wait)
 
 	jffs2_write_super(sb);
 
+#ifdef CONFIG_JFFS2_FS_WRITEBUFFER
+	cancel_delayed_work_sync(&c->wbuf_dwork);
+#endif
+
 	mutex_lock(&c->alloc_sem);
 	jffs2_flush_wbuf_pad(c);
 	mutex_unlock(&c->alloc_sem);

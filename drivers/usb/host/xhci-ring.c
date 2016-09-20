@@ -1206,6 +1206,20 @@ static void xhci_complete_cmd_in_cmd_wait_list(struct xhci_hcd *xhci,
 }
 
 
+/* Complete the command and detele it from the devcie's command queue.
+ */
+static void xhci_complete_cmd_in_cmd_wait_list(struct xhci_hcd *xhci,
+		struct xhci_command *command, u32 status)
+{
+	command->status = status;
+	list_del(&command->cmd_list);
+	if (command->completion)
+		complete(command->completion);
+	else
+		xhci_free_command(xhci, command);
+}
+
+
 /* Check to see if a command in the device's command queue matches this one.
  * Signal the completion or free the command, and return 1.  Return 0 if the
  * completed command isn't at the head of the command list.

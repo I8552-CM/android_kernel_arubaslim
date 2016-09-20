@@ -3173,6 +3173,7 @@ static void tcp_fastretrans_alert(struct sock *sk, int pkts_acked,
 			tp->snd_ssthresh = icsk->icsk_ca_ops->ssthresh(sk);
 			TCP_ECN_queue_cwr(tp);
 		}
+		newly_acked_sacked = pkts_acked + tp->sacked_out - prior_sacked;
 
 		tp->bytes_acked = 0;
 		tp->snd_cwnd_cnt = 0;

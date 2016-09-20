@@ -341,6 +341,7 @@ int radeon_ring_lock(struct radeon_device *rdev, struct radeon_ring *ring, unsig
 		mutex_unlock(&ring->mutex);
 		return r;
 	}
+	radeon_ring_lockup_update(ring);
 	return 0;
 }
 
