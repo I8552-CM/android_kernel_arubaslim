@@ -5,6 +5,7 @@ void load_menu(void);
 void Compile(void);
 void Flash(void);
 void Clean(void);
+void Mkboot(void);
 char *build = "build";
 int main(int argc, char** argv)
 {
@@ -20,20 +21,23 @@ void load_menu(void)
     {
    system("echo 'MSM7627a'");
         printf("1. Compile\n");
-        printf("2. Flash\n");
-	printf("3. Clean\n");
-        printf("4. Exit\n");
+	printf("2. Mkboot\n");
+        printf("3. Flash\n");
+	printf("4. Clean\n");
+        printf("5. Exit\n");
         scanf("%d",&choice);
  
         switch(choice)
         {
             case 1: Compile();
                 break;
-            case 2: Flash();
+            case 2: Mkboot();
                 break;
-	    case 3: Clean();
+            case 3: Flash();
+                break;
+	    case 4: Clean();
 		break;
-            case 4: printf("Quitting program!\n");
+            case 5: printf("Quitting program!\n");
 		unlink(build);
                 exit(0);
                 break;
@@ -41,7 +45,7 @@ void load_menu(void)
                 break;
         }
  
-    } while (choice != 3);
+    } while (choice != 4);
  
 }
  
@@ -52,6 +56,15 @@ void Compile(void)
                 exit(0);
 
 }     
+
+void Mkboot(void)
+{
+    		system("chmod 775 arch/arm/tools/scripts/mkboot; ./arch/arm/tools/scripts/mkboot");
+		unlink(build);
+                exit(0);
+
+}     
+
 
 void Flash(void)
 {

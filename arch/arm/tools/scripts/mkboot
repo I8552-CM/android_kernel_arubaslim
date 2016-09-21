@@ -1,0 +1,24 @@
+#!/bin/bash
+#chmod 775 arch/arm/tools/mkbootimg
+config=""
+echo "Enter config name"
+read config
+version=7
+make -j4 $config
+make -j4 
+mkdir system
+mkdir system/lib/
+mkdir system/lib/modules
+rsync -r `find -type f -name "*.ko"` system/lib/modules
+cp arch/arm/boot/zImage arch/arm/tools/zImage
+mv system arch/arm/tools/
+cd arch/arm/tools
+cd ramdisk
+find . | cpio -o -H newc | gzip > ../boot.img-ramdisk
+#rm -rf sys system dev data proc
+cd ..
+gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
+./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
+zip -r tmp META-INF boot.img system 
+rm -rf system boot.img zImage mkbootimg boot.img-ramdisk
+mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.5.$version-UNOFFICIAL-delos3geur.zip 
