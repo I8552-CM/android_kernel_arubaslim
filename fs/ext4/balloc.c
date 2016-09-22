@@ -283,7 +283,6 @@ static int ext4_valid_block_bitmap(struct super_block *sb,
 	int blk;
 	ext4_grpblk_t offset;
 	ext4_grpblk_t next_zero_bit;
-	ext4_fsblk_t bitmap_blk;
 	ext4_fsblk_t group_first_block;
 
 	if (EXT4_HAS_INCOMPAT_FEATURE(sb, EXT4_FEATURE_INCOMPAT_FLEX_BG)) {
