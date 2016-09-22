@@ -1,7 +1,5 @@
 #!/bin/bash
-#echo "rebooting recovery"
 version=7
-#adb shell "su -c 'reboot recovery'"
 echo "Waiting for device"
 adb wait-for-device
 mkdir tmp 
@@ -13,7 +11,15 @@ adb push boot.img /sdcard/boot.img
 echo "Flashing "
 adb shell "su -c 'dd if=/sdcard/boot.img of=/dev/block/mmcblk0p8'"
 adb shell rm /sdcard/boot.img
+echo "installing modules"
+cd system/lib/
+adb shell mkdir /sdcard/modules
+adb push modules /sdcard/modules/
+adb shell "su -c 'mount -o rw,remount,rw /system'"
+adb shell "su -c 'rm -rf /system/lib/modules/*.ko'"
+adb shell su -c "rsync -r /sdcard/modules/*.ko /system/lib/modules/"
+adb shell su -c "rm -rf /sdcard/modules"
 adb shell "su -c 'reboot'"
-cd ..
+cd ../../../
 rm -rf tmp
 clear
