@@ -17,8 +17,10 @@ adb shell mkdir /sdcard/modules
 adb push modules /sdcard/modules/
 adb shell "su -c 'mount -o rw,remount,rw /system'"
 adb shell "su -c 'rm -rf /system/lib/modules/*.ko'"
-adb shell su -c "rsync -r /sdcard/modules/*.ko /system/lib/modules/"
-adb shell su -c "rm -rf /sdcard/modules"
+adb shell "su -c 'rsync -r /sdcard/modules/*.ko /system/lib/modules/'"
+adb shell "su -c 'rm -rf /sdcard/modules'"
+adb shell "su -c 'chmod 7664 /system/lib/modules/*.ko'"
+echo "rebooting device don't unplug cable"
 adb shell "su -c 'reboot'"
 cd ../../../
 rm -rf tmp
