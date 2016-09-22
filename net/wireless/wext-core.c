@@ -342,6 +342,7 @@ static const int compat_event_type_size[] = {
 
 /* IW event code */
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
 static int __net_init wext_pernet_init(struct net *net)
 {
 	skb_queue_head_init(&net->wext_nlevents);
@@ -383,6 +384,33 @@ static void wireless_nlevent_process(struct work_struct *work)
 }
 
 static DECLARE_WORK(wireless_nlevent_work, wireless_nlevent_process);
+
+#else
+/* Older kernels get the old way of doing stuff*/
+static struct sk_buff_head wireless_nlevent_queue;
+
+static int __init wireless_nlevent_init(void)
+{
+	skb_queue_head_init(&wireless_nlevent_queue);
+	return 0;
+}
+
+subsys_initcall(wireless_nlevent_init);
+
+static void wireless_nlevent_process(unsigned long data)
+{
+	struct sk_buff *skb;
+	while ((skb = skb_dequeue(&wireless_nlevent_queue)))
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24))
+		rtnl_notify(skb, &init_net, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+#else
+		rtnl_notify(skb, 0, RTNLGRP_LINK, NULL, GFP_ATOMIC);
+#endif
+}
+
+static DECLARE_TASKLET(wireless_nlevent_tasklet, wireless_nlevent_process, 0);
+
+#endif
 
 static struct nlmsghdr *rtnetlink_ifinfo_prep(struct net_device *dev,
 					      struct sk_buff *skb)
@@ -596,8 +624,13 @@ void wireless_send_event(struct net_device *	dev,
 
 	skb_shinfo(skb)->frag_list = compskb;
 #endif
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32))
 	skb_queue_tail(&dev_net(dev)->wext_nlevents, skb);
 	schedule_work(&wireless_nlevent_work);
+#else
+	skb_queue_tail(&wireless_nlevent_queue, skb);
+	tasklet_schedule(&wireless_nlevent_tasklet);
+#endif
 }
 EXPORT_SYMBOL(wireless_send_event);
 
@@ -780,10 +813,8 @@ static int ioctl_standard_iw_point(struct iw_point *iwp, unsigned int cmd,
 		if (cmd == SIOCSIWENCODEEXT) {
 			struct iw_encode_ext *ee = (void *) extra;
 
-			if (iwp->length < sizeof(*ee) + ee->key_len) {
-				err = -EFAULT;
-				goto out;
-			}
+			if (iwp->length < sizeof(*ee) + ee->key_len)
+				return -EFAULT;
 		}
 	}
 
@@ -924,8 +955,13 @@ static int wireless_process_ioctl(struct net *net, struct ifreq *ifr,
 			return private(dev, iwr, cmd, info, handler);
 	}
 	/* Old driver API : call driver ioctl handler */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29))
 	if (dev->netdev_ops->ndo_do_ioctl)
 		return dev->netdev_ops->ndo_do_ioctl(dev, ifr, cmd);
+#else
+	if (dev->do_ioctl)
+		return dev->do_ioctl(dev, ifr, cmd);
+#endif
 	return -EOPNOTSUPP;
 }
 

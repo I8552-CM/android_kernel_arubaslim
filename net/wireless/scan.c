@@ -18,7 +18,7 @@
 #include "nl80211.h"
 #include "wext-compat.h"
 
-#define IEEE80211_SCAN_RESULT_EXPIRE	(3 * HZ)
+#define IEEE80211_SCAN_RESULT_EXPIRE	(15 * HZ)
 
 void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev, bool leak)
 {
@@ -205,6 +205,25 @@ void cfg80211_bss_expire(struct cfg80211_registered_device *dev)
 		if (atomic_read(&bss->hold))
 			continue;
 		if (!time_after(jiffies, bss->ts + IEEE80211_SCAN_RESULT_EXPIRE))
+			continue;
+		__cfg80211_unlink_bss(dev, bss);
+		expired = true;
+	}
+
+	if (expired)
+		dev->bss_generation++;
+}
+
+/* must hold dev->bss_lock! */
+void cfg80211_bss_expire_all(struct cfg80211_registered_device *dev)
+{
+	struct cfg80211_internal_bss *bss, *tmp;
+	bool expired = false;
+
+	printk("%s() Enter\n", __func__);
+
+	list_for_each_entry_safe(bss, tmp, &dev->bss_list, list) {
+		if (atomic_read(&bss->hold))
 			continue;
 		__cfg80211_unlink_bss(dev, bss);
 		expired = true;
@@ -633,9 +652,14 @@ cfg80211_bss_update(struct cfg80211_registered_device *dev,
 			size_t used = dev->wiphy.bss_priv_size + sizeof(*res);
 			size_t ielen = res->pub.len_proberesp_ies;
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,28)
+			if (0) {
+				used = 0; /* just to shut up the compiler */
+#else
 			if (found->pub.proberesp_ies &&
 			    !found->proberesp_ies_allocated &&
 			    ksize(found) >= used + ielen) {
+#endif
 				memcpy(found->pub.proberesp_ies,
 				       res->pub.proberesp_ies, ielen);
 				found->pub.len_proberesp_ies = ielen;
@@ -669,9 +693,14 @@ cfg80211_bss_update(struct cfg80211_registered_device *dev,
 				(found->pub.information_elements ==
 				 found->pub.beacon_ies);
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,28)
+			if (0) {
+				used = 0; /* just to shut up the compiler */
+#else
 			if (found->pub.beacon_ies &&
 			    !found->beacon_ies_allocated &&
 			    ksize(found) >= used + ielen) {
+#endif
 				memcpy(found->pub.beacon_ies,
 				       res->pub.beacon_ies, ielen);
 				found->pub.len_beacon_ies = ielen;
@@ -734,8 +763,9 @@ cfg80211_bss_update(struct cfg80211_registered_device *dev,
 struct cfg80211_bss*
 cfg80211_inform_bss(struct wiphy *wiphy,
 		    struct ieee80211_channel *channel,
-		    const u8 *bssid, u64 tsf, u16 capability,
-		    u16 beacon_interval, const u8 *ie, size_t ielen,
+		    const u8 *bssid,
+		    u64 timestamp, u16 capability, u16 beacon_interval,
+		    const u8 *ie, size_t ielen,
 		    s32 signal, gfp_t gfp)
 {
 	struct cfg80211_internal_bss *res;
@@ -757,7 +787,7 @@ cfg80211_inform_bss(struct wiphy *wiphy,
 	memcpy(res->pub.bssid, bssid, ETH_ALEN);
 	res->pub.channel = channel;
 	res->pub.signal = signal;
-	res->pub.tsf = tsf;
+	res->pub.tsf = timestamp;
 	res->pub.beacon_interval = beacon_interval;
 	res->pub.capability = capability;
 	/*
@@ -860,18 +890,6 @@ cfg80211_inform_bss_frame(struct wiphy *wiphy,
 }
 EXPORT_SYMBOL(cfg80211_inform_bss_frame);
 
-void cfg80211_ref_bss(struct cfg80211_bss *pub)
-{
-	struct cfg80211_internal_bss *bss;
-
-	if (!pub)
-		return;
-
-	bss = container_of(pub, struct cfg80211_internal_bss, pub);
-	kref_get(&bss->ref);
-}
-EXPORT_SYMBOL(cfg80211_ref_bss);
-
 void cfg80211_put_bss(struct cfg80211_bss *pub)
 {
 	struct cfg80211_internal_bss *bss;
@@ -902,6 +920,19 @@ void cfg80211_unlink_bss(struct wiphy *wiphy, struct cfg80211_bss *pub)
 	spin_unlock_bh(&dev->bss_lock);
 }
 EXPORT_SYMBOL(cfg80211_unlink_bss);
+
+void cfg80211_unlink_allbss(struct wiphy *wiphy)
+{
+	struct cfg80211_registered_device *dev = wiphy_to_dev(wiphy);
+
+	printk("%s() Enter\n", __func__);
+
+	spin_lock_bh(&dev->bss_lock);
+	cfg80211_bss_expire_all(dev);
+	spin_unlock_bh(&dev->bss_lock);
+}
+EXPORT_SYMBOL(cfg80211_unlink_allbss);
+
 
 #ifdef CONFIG_CFG80211_WEXT
 int cfg80211_wext_siwscan(struct net_device *dev,
@@ -1014,8 +1045,6 @@ int cfg80211_wext_siwscan(struct net_device *dev,
 		if (wreq->scan_type == IW_SCAN_TYPE_PASSIVE)
 			creq->n_ssids = 0;
 	}
-	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
-		creq->rates[i] = (1 << wiphy->bands[i]->n_bitrates) - 1;
 
 	for (i = 0; i < IEEE80211_NUM_BANDS; i++)
 		if (wiphy->bands[i])

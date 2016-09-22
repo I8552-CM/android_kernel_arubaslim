@@ -471,7 +471,7 @@ void ath6kl_connect_ap_mode_bss(struct ath6kl_vif *vif, u16 channel)
 
 	if (ar->last_ch != channel)
 		/* we actually don't know the phymode, default to HT20 */
-		ath6kl_cfg80211_ch_switch_notify(vif, channel, WMI_11G_HT20);
+		//ath6kl_cfg80211_ch_switch_notify(vif, channel, WMI_11G_HT20);
 
 	ath6kl_wmi_bssfilter_cmd(ar->wmi, vif->fw_vif_idx, NONE_BSS_FILTER, 0);
 	set_bit(CONNECTED, &vif->flags);
@@ -1068,27 +1068,6 @@ void ath6kl_disconnect_event(struct ath6kl_vif *vif, u8 reason, u8 *bssid,
 			ar->want_ch_switch |= 1 << vif->fw_vif_idx;
 			/* bail back to this channel if STA vif fails connect */
 			ar->last_ch = le16_to_cpu(vif->profile.ch);
-		}
-
-		if (prot_reason_status == WMI_AP_REASON_MAX_STA) {
-			/* send max client reached notification to user space */
-			cfg80211_conn_failed(vif->ndev, bssid,
-					     NL80211_CONN_FAIL_MAX_CLIENTS,
-					     GFP_KERNEL);
-		}
-
-		if (prot_reason_status == WMI_AP_REASON_ACL) {
-			/* send blocked client notification to user space */
-			cfg80211_conn_failed(vif->ndev, bssid,
-					     NL80211_CONN_FAIL_BLOCKED_CLIENT,
-					     GFP_KERNEL);
-		}
-
-		if (prot_reason_status == WMI_AP_REASON_NEW_STA) {
-			/* send new client notification to user space */
-			cfg80211_conn_failed(vif->ndev, bssid,
-					     NL80211_CONN_FAIL_NEW_CLIENT,
-					     GFP_KERNEL);
 		}
 
 		if (!ath6kl_remove_sta(ar, bssid, prot_reason_status))

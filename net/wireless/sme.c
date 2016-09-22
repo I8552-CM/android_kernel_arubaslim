@@ -179,7 +179,7 @@ static int cfg80211_conn_do_work(struct wireless_dev *wdev)
 					    params->ssid, params->ssid_len,
 					    NULL, 0,
 					    params->key, params->key_len,
-					    params->key_idx);
+					    params->key_idx, false);
 	case CFG80211_CONN_ASSOCIATE_NEXT:
 		BUG_ON(!rdev->ops->assoc);
 		wdev->conn->state = CFG80211_CONN_ASSOCIATING;
@@ -190,9 +190,7 @@ static int cfg80211_conn_do_work(struct wireless_dev *wdev)
 					    prev_bssid,
 					    params->ssid, params->ssid_len,
 					    params->ie, params->ie_len,
-					    false, &params->crypto,
-					    params->flags, &params->ht_capa,
-					    &params->ht_capa_mask);
+					    false, &params->crypto);
 		if (err)
 			__cfg80211_mlme_deauth(rdev, wdev->netdev, params->bssid,
 					       NULL, 0,
@@ -222,9 +220,6 @@ void cfg80211_conn_work(struct work_struct *work)
 	mutex_lock(&rdev->devlist_mtx);
 
 	list_for_each_entry(wdev, &rdev->netdev_list, list) {
-		if (!wdev->netdev)
-			continue;
-
 		wdev_lock(wdev);
 		if (!netif_running(wdev->netdev)) {
 			wdev_unlock(wdev);
@@ -480,7 +475,6 @@ void __cfg80211_connect_result(struct net_device *dev, const u8 *bssid,
 		kfree(wdev->connect_keys);
 		wdev->connect_keys = NULL;
 		wdev->ssid_len = 0;
-		cfg80211_put_bss(bss);
 		return;
 	}
 
@@ -692,12 +686,13 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 		    wdev->iftype != NL80211_IFTYPE_P2P_CLIENT))
 		return;
 
-#ifndef CONFIG_CFG80211_ALLOW_RECONNECT
 	if (wdev->sme_state != CFG80211_SME_CONNECTED)
 		return;
-#endif
 
 	if (wdev->current_bss) {
+		/* Remove current_bss to fix 'p2p_connect join' issue found during p2p repeat connect test.*/
+		cfg80211_unlink_bss(wdev->wiphy, &wdev->current_bss->pub);
+
 		cfg80211_unhold_bss(wdev->current_bss);
 		cfg80211_put_bss(&wdev->current_bss->pub);
 	}
@@ -707,10 +702,31 @@ void __cfg80211_disconnected(struct net_device *dev, const u8 *ie,
 	wdev->ssid_len = 0;
 
 	if (wdev->conn) {
+		const u8 *bssid;
+		int ret;
+
 		kfree(wdev->conn->ie);
 		wdev->conn->ie = NULL;
 		kfree(wdev->conn);
 		wdev->conn = NULL;
+
+		/*
+		 * If this disconnect was due to a disassoc, we
+		 * we might still have an auth BSS around. For
+		 * the userspace SME that's currently expected,
+		 * but for the kernel SME (nl80211 CONNECT or
+		 * wireless extensions) we want to clear up all
+		 * state.
+		 */
+		for (i = 0; i < MAX_AUTH_BSSES; i++) {
+			if (!wdev->auth_bsses[i])
+				continue;
+			bssid = wdev->auth_bsses[i]->pub.bssid;
+			ret = __cfg80211_mlme_deauth(rdev, dev, bssid, NULL, 0,
+						WLAN_REASON_DEAUTH_LEAVING,
+						false);
+			WARN(ret, "deauth failed: %d\n", ret);
+		}
 	}
 
 	nl80211_send_disconnected(rdev, dev, reason, ie, ie_len, from_ap);
@@ -772,20 +788,13 @@ int __cfg80211_connect(struct cfg80211_registered_device *rdev,
 
 	ASSERT_WDEV_LOCK(wdev);
 
-#ifndef CONFIG_CFG80211_ALLOW_RECONNECT
 	if (wdev->sme_state != CFG80211_SME_IDLE)
 		return -EALREADY;
 
 	if (WARN_ON(wdev->connect_keys)) {
-#else
-	if (wdev->connect_keys) {
-#endif
 		kfree(wdev->connect_keys);
 		wdev->connect_keys = NULL;
 	}
-
-	cfg80211_oper_and_ht_capa(&connect->ht_capa_mask,
-				  rdev->wiphy.ht_capa_mod_mask);
 
 	if (connkeys && connkeys->def >= 0) {
 		int idx;
@@ -1001,8 +1010,7 @@ int cfg80211_disconnect(struct cfg80211_registered_device *rdev,
 	return err;
 }
 
-void cfg80211_sme_disassoc(struct net_device *dev,
-			   struct cfg80211_internal_bss *bss)
+void cfg80211_sme_disassoc(struct net_device *dev, int idx)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
 	struct cfg80211_registered_device *rdev = wiphy_to_dev(wdev->wiphy);
@@ -1021,8 +1029,16 @@ void cfg80211_sme_disassoc(struct net_device *dev,
 	 * want it any more so deauthenticate too.
 	 */
 
-	memcpy(bssid, bss->pub.bssid, ETH_ALEN);
+	if (!wdev->auth_bsses[idx])
+		return;
 
-	__cfg80211_mlme_deauth(rdev, dev, bssid, NULL, 0,
-			       WLAN_REASON_DEAUTH_LEAVING, false);
+	memcpy(bssid, wdev->auth_bsses[idx]->pub.bssid, ETH_ALEN);
+	if (__cfg80211_mlme_deauth(rdev, dev, bssid,
+				   NULL, 0, WLAN_REASON_DEAUTH_LEAVING,
+				   false)) {
+		/* whatever -- assume gone anyway */
+		cfg80211_unhold_bss(wdev->auth_bsses[idx]);
+		cfg80211_put_bss(&wdev->auth_bsses[idx]->pub);
+		wdev->auth_bsses[idx] = NULL;
+	}
 }
