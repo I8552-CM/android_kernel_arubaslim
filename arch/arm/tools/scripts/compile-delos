@@ -1,10 +1,6 @@
 #!/bin/bash
-#chmod 775 arch/arm/tools/mkbootimg
-config=""
-echo "Enter config name"
-read config
 version=7
-make -j4 $config
+make -j4 delos_defconfig
 make -j4 
 mkdir system
 mkdir system/lib/
@@ -15,10 +11,11 @@ mv system arch/arm/tools/
 cd arch/arm/tools
 cd ramdisk
 find . | cpio -o -H newc | gzip > ../boot.img-ramdisk
-#rm -rf sys system dev data proc
 cd ..
 gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
 ./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
+cp scripts/updater-script-delos META-INF/com/google/android/updater-script
 zip -r tmp META-INF boot.img system 
+rm META-INF/com/google/android/updater-script
 rm -rf system boot.img zImage mkbootimg boot.img-ramdisk
 mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.5.$version-UNOFFICIAL-delos3geur.zip 

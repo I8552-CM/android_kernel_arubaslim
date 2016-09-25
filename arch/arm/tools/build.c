@@ -2,10 +2,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 void load_menu(void);
-void Compile(void);
+void delos(void);
 void Flash(void);
 void Clean(void);
-void Mkboot(void);
+void aurba(void);
 char *build = "build";
 int main(int argc, char** argv)
 {
@@ -20,8 +20,8 @@ void load_menu(void)
     do
     {
    system("echo 'MSM7627a'");
-        printf("1. Compile\n");
-	printf("2. Mkboot\n");
+        printf("1. Compile for delos3geur\n");
+	printf("2. compile for arubaslim\n");
         printf("3. Flash\n");
 	printf("4. Clean\n");
         printf("5. Exit\n");
@@ -29,9 +29,9 @@ void load_menu(void)
  
         switch(choice)
         {
-            case 1: Compile();
+            case 1: delos();
                 break;
-            case 2: Mkboot();
+            case 2: aurba();
                 break;
             case 3: Flash();
                 break;
@@ -49,17 +49,17 @@ void load_menu(void)
  
 }
  
-void Compile(void)
+void delos(void)
 {
-    		system("chmod 775 arch/arm/tools/scripts/compile; ./arch/arm/tools/scripts/compile");
+    		system("chmod 775 arch/arm/tools/scripts/compile-delos; ./arch/arm/tools/scripts/compile-delos");
 		unlink(build);
                 exit(0);
 
 }     
 
-void Mkboot(void)
+void aurba(void)
 {
-    		system("chmod 775 arch/arm/tools/scripts/mkboot; ./arch/arm/tools/scripts/mkboot");
+    		system("chmod 775 arch/arm/tools/scripts/compile-aurba; ./arch/arm/tools/scripts/compile-aurba");
 		unlink(build);
                 exit(0);
 
