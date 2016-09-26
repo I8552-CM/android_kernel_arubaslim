@@ -27,12 +27,12 @@
 #include <linux/rtc-msm.h>
 #include <linux/msm_rpcrouter.h>
 #include <mach/msm_rpcrouter.h>
-#ifdef CONFIG_RTC_AUTO_PWRON
-#include "../../arch/arm/mach-msm/proc_comm.h"
-#endif /* CONFIG_RTC_AUTO_PWRON */
 
 #define APP_TIMEREMOTE_PDEV_NAME "rs00000000"
-
+#ifdef CONFIG_HUAWEI_FEATURE_POWEROFF_ALARM
+/*define rpc case for rtc alarm set which defined in modem rpc server*/
+#define TIMEREMOTE_PROCEEDURE_SET_ALARM		3
+#endif /*CONFIG_HUAWEI_FEATURE_POWEROFF_ALARM*/
 #define TIMEREMOTE_PROCEEDURE_SET_JULIAN	6
 #define TIMEREMOTE_PROCEEDURE_GET_JULIAN	7
 #ifdef CONFIG_RTC_SECURE_TIME_SUPPORT
@@ -47,6 +47,7 @@
 #define RTC_CLIENT_INIT_PROC		0x12
 #define RTC_EVENT_CB_PROC		0x1
 #define RTC_CB_ID			0x1
+struct msm_rpc_client * huawei_alarm_client;
 
 /* Client request errors */
 enum rtc_rpc_err {
@@ -176,6 +177,17 @@ void msmrtc_updateatsuspend(struct timespec *ts)
 	}
 
 }
+#ifdef CONFIG_HUAWEI_FEATURE_POWEROFF_ALARM
+static int msmrtcalarm_tod_proc_args(struct msm_rpc_client *client, void *buff,
+							void *data)
+{
+	unsigned long temp = *((unsigned long *)data);
+	unsigned long *sec = buff;
+    /*mutiply 1000 to adatpe to modem */
+	*sec = cpu_to_be32(temp * 1000);
+	return sizeof(*sec);
+}
+#endif /*CONFIG_HUAWEI_FEATURE_POWEROFF_ALARM*/
 #else
 void msmrtc_updateatsuspend(struct timespec *ts) { }
 #endif
@@ -321,35 +333,31 @@ msmrtc_timeremote_set_time(struct device *dev, struct rtc_time *tm)
 
 	return 0;
 }
-
-#ifdef CONFIG_RTC_AUTO_PWRON
-#define BOOTALARM_DEBUG
-#endif /* CONFIG_RTC_AUTO_PWRON */
-#ifdef BOOTALARM_DEBUG
+#ifdef CONFIG_HUAWEI_FEATURE_POWEROFF_ALARM
+/*Use RPC set rtc alarm time to ARM9*/
+int
+msmrtc_remote_rtc_set_alarm(struct timespec *tm)
+{
+	int rc;
+		
+	printk("Rtc-msm alarm time is %ld\n",tm->tv_sec);
+	
+	rc = msm_rpc_client_req(huawei_alarm_client,TIMEREMOTE_PROCEEDURE_SET_ALARM,
+							msmrtcalarm_tod_proc_args,&tm->tv_sec,
+							NULL,NULL,-1);
+	if (rc) {
+		printk("%s: rtc time (TOD) could not be set\n", __func__);
+		return rc;
+	}
+	return 0;
+}
+#endif /*CONFIG_HUAWEI_FEATURE_POWEROFF_ALARM*/
 static int
-msmrtc_getbootalarm(struct device *dev, struct rtc_wkalrm *a);
-#endif /* BOOTALARM_DEBUG */
 msmrtc_timeremote_read_time(struct device *dev, struct rtc_time *tm)
 {
 	int rc;
 	struct rtc_tod_args rtc_args;
 	struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-	
-#if defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_ARUBA_OPEN)
-	unsigned long sec_tmp = 0;
-#endif
-
-#ifdef BOOTALARM_DEBUG
-	static int once = 1;
-	struct rtc_wkalrm bootalarm;
-
-	if (once == 1) {
-		pr_debug("++++++++++++++++++++++++++++++++++++++++\n");
-		msmrtc_getbootalarm(dev, &bootalarm);
-		pr_debug("++++++++++++++++++++++++++++++++++++++++\n");
-		once = 0;
-	}
-#endif /* BOOTALARM_DEBUG */
 
 	rtc_args.proc = TIMEREMOTE_PROCEEDURE_GET_JULIAN;
 	rtc_args.tm = tm;
@@ -363,14 +371,6 @@ msmrtc_timeremote_read_time(struct device *dev, struct rtc_time *tm)
 		dev_err(dev, "%s: Error retrieving rtc (TOD) time\n", __func__);
 		return rc;
 	}
-
-#if defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_ARUBA_OPEN)
-	rtc_tm_to_time(rtc_args.tm, &sec_tmp);
-	printk("%s [RTC] sec =  %ld \n", __func__, sec_tmp);
-	printk("%s [RTC] %d-%d-%d %d:%d:%d\n",__func__,rtc_args.tm->tm_year + 1900, rtc_args.tm->tm_mon + 1,
-					 rtc_args.tm->tm_mday, rtc_args.tm->tm_hour,
-					 rtc_args.tm->tm_min, rtc_args.tm->tm_sec);
-#endif
 
 	return 0;
 }
@@ -397,156 +397,10 @@ msmrtc_virtual_alarm_set(struct device *dev, struct rtc_wkalrm *a)
 	return 0;
 }
 
-#ifdef CONFIG_RTC_AUTO_PWRON
-struct txt_time_date {
-	unsigned short year;
-	unsigned char month;
-	unsigned char day;
-} ;
-
-struct txt_time_time {
-	unsigned char hour;
-	unsigned char minute;
-	unsigned char sec;
-	unsigned char wday;
-};
-
-static void
-time_encode_txtime(struct rtc_wkalrm *a, struct txt_time_date *pdate,
-		struct txt_time_time *ptime)
-{
-	pdate->year = a->time.tm_year + 2000;
-	pdate->month = a->time.tm_mon + 1;
-	pdate->day = a->time.tm_mday;
-	ptime->hour = a->time.tm_hour;
-	ptime->minute = a->time.tm_min;
-	ptime->sec = a->time.tm_sec;
-	ptime->wday = a->time.tm_wday;
-}
-
-static void
-time_decode_txtime(struct txt_time_date *pdate, struct txt_time_time *ptime,
-		struct rtc_wkalrm *a)
-{
-	a->time.tm_year = pdate->year - 2000;
-	a->time.tm_mon = pdate->month - 1;
-	a->time.tm_mday = pdate->day;
-	a->time.tm_hour = ptime->hour;
-	a->time.tm_min = ptime->minute;
-	a->time.tm_sec = ptime->sec;
-	a->time.tm_wday = ptime->wday;
-}
-
-static int
-msmrtc_getbootalarm(struct device *dev, struct rtc_wkalrm *a)
-{
-	struct txt_time_date date;
-	struct txt_time_time time;
-	struct rtc_wkalrm b;
-	int cnt = 2;
-
-	while (cnt > 0) {
-		date.year = 0xFFFD + cnt;  /* 1st : 0xFFFF , 2st : 0xFFFE */
-		msm_proc_comm(PCOM_SET_RTC_ALARM,
-			(unsigned *)&date, (unsigned *)&time);
-
-		if (date.year >= 0xFFFE) {
-			pr_err("%s -> failed\n", __func__);
-		} else {
-			if (cnt == 2) {
-				time_decode_txtime(&date, &time, a);
-				a->enabled = 1;
-
-				pr_debug("%s [PMIC ALARM] %d-%d-%d %d:%d:%d\n",
-					__func__,
-					a->time.tm_year, a->time.tm_mon,
-					a->time.tm_mday,	a->time.tm_hour,
-					a->time.tm_min, a->time.tm_sec);
-			}	else {
-				time_decode_txtime(&date, &time, &b);
-				b.enabled = 1;
-
-				pr_debug("%s [PMIC RTC  ] %d-%d-%d %d:%d:%d\n",
-					__func__,
-					b.time.tm_year, b.time.tm_mon,
-					 b.time.tm_mday, b.time.tm_hour,
-					 b.time.tm_min, b.time.tm_sec);
-			}
-		}
-		cnt--;
-	}
-
-	return 0;
-}
-
-static int
-msmrtc_setbootalarm(struct device *dev, struct rtc_wkalrm *a)
-{
-	unsigned long now = get_seconds();
-	struct txt_time_date date;
-	struct txt_time_time time;
-	int ret;
-	struct msm_rtc *rtc_pdata = dev_get_drvdata(dev);
-
-	if (!a->enabled) {
-		date.year = 0xFFFD;  /* alarm off */
-		ret = msm_proc_comm(PCOM_SET_RTC_ALARM,
-					(unsigned *)&date, (unsigned *)&time);
-		if (ret != 0) {
-			pr_err("[%s] PCOM_SET_RTC_ALARM off failed\n",
-					__func__);
-		}
-		rtc_pdata->rtcalarm_time = 0;
-		return 0;
-	}
-
-	rtc_tm_to_time(&a->time, &rtc_pdata->rtcalarm_time);
-	pr_debug("[%s] %d-%d-%d %d:%d:%d => 0x%x\n", __func__,
-		a->time.tm_year, a->time.tm_mon, a->time.tm_mday,
-		a->time.tm_hour, a->time.tm_min, a->time.tm_sec,
-		rtc_pdata->rtcalarm_time);
-	printk(KERN_ERR"%s %d-%d-%d %d:%d:%d => 0x%x\n", __func__,
-		a->time.tm_year, a->time.tm_mon, a->time.tm_mday,
-		a->time.tm_hour, a->time.tm_min, a->time.tm_sec,
-		rtc_pdata->rtcalarm_time);
-
-	/* To ignore invalid data from rtc-sysfs.c */
-	a->time.tm_wday = 0;
-
-	if (now > rtc_pdata->rtcalarm_time) {
-		pr_err("%s: Attempt to set alarm in the past\n", __func__);
-		rtc_pdata->rtcalarm_time = 0;
-		return -EINVAL;
-	}
-
-	/* convert to 2 byte time format */
-	time_encode_txtime(a, &date, &time);
-
-	ret = msm_proc_comm(PCOM_SET_RTC_ALARM,
-				(unsigned *)&date, (unsigned *)&time);
-	if (ret != 0) {
-		pr_err("[%s] PCOM_SET_RTC_ALARM set failed #1 -> re-try\n",
-					__func__);
-		ret = msm_proc_comm(PCOM_SET_RTC_ALARM,
-					(unsigned *)&date, (unsigned *)&time);
-		if (ret != 0) {
-			pr_err("[%s] PCOM_SET_RTC_ALARM set failed #2\n",
-					__func__);
-		}
-	}
-
-	return 0;
-}
-#endif /*CONFIG_RTC_AUTO_PWRON*/
-
 static struct rtc_class_ops msm_rtc_ops = {
 	.read_time	= msmrtc_timeremote_read_time,
 	.set_time	= msmrtc_timeremote_set_time,
 	.set_alarm	= msmrtc_virtual_alarm_set,
-#ifdef CONFIG_RTC_AUTO_PWRON
-	.read_bootalarm = msmrtc_getbootalarm,
-	.set_bootalarm  = msmrtc_setbootalarm,
-#endif /*CONFIG_RTC_AUTO_PWRON*/
 };
 
 #ifdef CONFIG_RTC_SECURE_TIME_SUPPORT
@@ -810,6 +664,8 @@ msmrtc_probe(struct platform_device *pdev)
 		kfree(rtc_pdata);
 		return rc;
 	}
+	
+	huawei_alarm_client = rtc_pdata->rpc_client;
 
 	/*
 	 * Set up the callback client.

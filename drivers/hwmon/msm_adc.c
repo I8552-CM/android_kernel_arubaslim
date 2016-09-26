@@ -1175,7 +1175,7 @@ static int __devinit msm_rpc_adc_device_init(struct platform_device *pdev)
 			goto dev_init_err;
 		}
 
-		if (!pdata->target_hw == MSM_8x25) {
+		if (!pdata->target_hw) {
 			/* DAL device lookup */
 			rc = msm_adc_getinputproperties(msm_adc, adc_dev->name,
 								&target);

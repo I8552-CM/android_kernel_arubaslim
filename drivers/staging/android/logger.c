@@ -29,280 +29,7 @@
 
 #include <asm/ioctls.h>
 
-static unsigned long platform_reset_count;
-
-#ifdef CONFIG_APPLY_GA_SOLUTION
-// @message
-static char klog_buf[256];
-#endif
-
-#ifdef CONFIG_APPLY_GA_SOLUTION
-// GAF
-#include <linux/sched.h>
-#include <linux/kthread.h>
-#include <linux/delay.h>
-
-extern struct GAForensicINFO GAFINFO;
-extern u64 get_idle_time_ram(int cpu);
-extern u64 get_iowait_time_ram(int cpu);
-
-void dump_one_task_info(struct task_struct *tsk, bool isMain)
-{
-	char stat_array[3] = { 'R', 'S', 'D'};
-	char stat_ch;
-	char *pThInf = tsk->stack;
-
-	stat_ch = tsk->state <= TASK_UNINTERRUPTIBLE ? stat_array[tsk->state] : '?';
-	printk( "%8d %8d %8d %16lld %c (%d) %3d %08x %c %s\n",
-		tsk->pid, (int)(tsk->utime), (int)(tsk->stime), tsk->se.exec_start, stat_ch, (int)(tsk->state),
-		*(int*)(pThInf + GAFINFO.thread_info_struct_cpu),
-		(int)tsk, isMain?'*':' ', tsk->comm );
-	
-	if( tsk->state == TASK_RUNNING || tsk->state == TASK_UNINTERRUPTIBLE ) {
-		show_stack(tsk, NULL);
-	}
-}
-
-void dump_all_task_info()
-{
-	struct task_struct *frst_tsk;
-	struct task_struct *curr_tsk;
-	struct task_struct *frst_thr;
-	struct task_struct *curr_thr;
-
-	printk ( "\n" );
-	printk ( " current proc: %d %s\n", current->pid, current->comm );
-	printk ( "-----------------------------------------------------------------------------------\n" );
-	printk ( "    pid     uTime     sTime              exec(ns)     stat     cpu     task_struct\n" );
-	printk ( "-----------------------------------------------------------------------------------\n" );
-
-	//process
-	frst_tsk = &init_task;
-	curr_tsk = frst_tsk;
-	while(curr_tsk != NULL )
-	{
-		dump_one_task_info( curr_tsk, true);
-		//threads
-		if( curr_tsk->thread_group.next != NULL)
-		{
-			frst_thr = container_of( curr_tsk->thread_group.next, struct task_struct, thread_group );
-			curr_thr = frst_thr;
-			if( frst_thr != curr_tsk)
-			{
-				while( curr_thr != curr_tsk)
-				{
-					dump_one_task_info( curr_thr, false);
-					curr_thr = container_of( curr_thr->thread_group.next, struct task_struct, thread_group);
-					if( curr_thr == curr_tsk)  break;
-				}
-			}
-		}
-		curr_tsk = container_of( curr_tsk->tasks.next, struct task_struct, tasks);
-		if(curr_tsk == frst_tsk) break;
-	}
-	printk ( "-----------------------------------------------------------------------------------\n" );
-}
-
-#include <linux/kernel_stat.h>
-
-#ifndef arch_irq_stat_cpu
-#define arch_irq_stat_cpu(cpu) 0
-#endif
-
-#ifndef arch_irq_stat
-#define arch_irq_stat() 0
-#endif
-
-#ifndef arch_idle_time
-#define arch_idle_time(cpu) 0
-#endif
-
-void dump_cpu_stat()
-{
-	int i, j;
-	unsigned long jif;
-	u64 user, nice, system, idle, iowait, irq, softirq, steal;
-	u64 guest, guest_nice;
-	u64 sum = 0;
-	u64 sum_softirq = 0;
-	unsigned int per_softirq_sums[NR_SOFTIRQS] = {0};
-	struct timespec boottime;
-	unsigned int per_irq_sum;
-	user = nice = system = idle = iowait =
-	irq = softirq = steal = cputime64_zero;
-	guest = guest_nice = cputime64_zero;
-	getboottime(&boottime);
-	jif = boottime.tv_sec;
-	
-	for_each_possible_cpu(i) {
-		user += kcpustat_cpu(i).cpustat[CPUTIME_USER];
-		nice += kcpustat_cpu(i).cpustat[CPUTIME_NICE];
-		system += kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
-		idle += get_idle_time_ram(i);
-		iowait += get_iowait_time_ram(i);
-		irq += kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
-		softirq += kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
-		//steal += kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
-		//guest += kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
-		//guest_nice += kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
-		for_each_irq_nr(j) {
-			sum += kstat_irqs_cpu(i, j);
-		}
-		
-		sum += arch_irq_stat_cpu(i);
-		
-		for (j=0; j< NR_SOFTIRQS; j++)
-		{
-			unsigned int softirq_stat = kstat_softirqs_cpu(j, i);
-			per_softirq_sums[j] += softirq_stat;
-			sum_softirq += softirq_stat;
-		}
-	}
-	sum += arch_irq_stat();
-	
-	printk("\n");
-	printk(" cpu  user:%llu nice:%llu system:%llu idle:%llu iowait:%llu irq:%llu softirq:%llu %llu %llu %llu\n",
-		(unsigned long long)cputime64_to_clock_t(user),
-		(unsigned long long)cputime64_to_clock_t(nice),
-		(unsigned long long)cputime64_to_clock_t(system),
-		(unsigned long long)cputime64_to_clock_t(idle),
-		(unsigned long long)cputime64_to_clock_t(iowait),
-		(unsigned long long)cputime64_to_clock_t(irq),
-		(unsigned long long)cputime64_to_clock_t(softirq),
-		(unsigned long long)0, //cputime64_to_clock_t(steal),
-		(unsigned long long)0, //cputime64_to_clock_t(guest),
-		(unsigned long long)0);//cputime64_to_clock_t(guest_nice));
-	printk(" -----------------------------------------------------------------------------------\n" );
-	
-	for_each_online_cpu(i) {
-		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
-		user = kcpustat_cpu(i).cpustat[CPUTIME_USER];
-		nice = kcpustat_cpu(i).cpustat[CPUTIME_NICE];
-		system = kcpustat_cpu(i).cpustat[CPUTIME_SYSTEM];
-		idle = get_idle_time_ram(i);
-		iowait = get_iowait_time_ram(i);
-		irq = kcpustat_cpu(i).cpustat[CPUTIME_IRQ];
-		softirq = kcpustat_cpu(i).cpustat[CPUTIME_SOFTIRQ];
-		//steal = kcpustat_cpu(i).cpustat[CPUTIME_STEAL];
-		//guest = kcpustat_cpu(i).cpustat[CPUTIME_GUEST];
-		//guest_nice = kcpustat_cpu(i).cpustat[CPUTIME_GUEST_NICE];
-		
-		printk(" cpu %d user:%llu nice:%llu system:%llu idle:%llu iowait:%llu irq:%llu softirq:%llu %llu %llu %llu\n",
-			i,
-			(unsigned long long)cputime64_to_clock_t(user),
-			(unsigned long long)cputime64_to_clock_t(nice),
-			(unsigned long long)cputime64_to_clock_t(system),
-			(unsigned long long)cputime64_to_clock_t(idle),
-			(unsigned long long)cputime64_to_clock_t(iowait),
-			(unsigned long long)cputime64_to_clock_t(irq),
-			(unsigned long long)cputime64_to_clock_t(softirq),
-			(unsigned long long)0, //cputime64_to_clock_t(steal),
-			(unsigned long long)0, //cputime64_to_clock_t(guest),
-			(unsigned long long)0);//cputime64_to_clock_t(guest_nice));
-		
-	}
-	
-	printk(" -----------------------------------------------------------------------------------\n" );
-	printk("\n");
-	printk(" irq : %llu", (unsigned long long)sum);
-	printk(" -----------------------------------------------------------------------------------\n" );
-	
-	/* sum again ? it could be updated? */
-	for_each_irq_nr(j) {
-		per_irq_sum = 0;
-		for_each_possible_cpu(i)
-		per_irq_sum += kstat_irqs_cpu(j, i);
-		if(per_irq_sum) printk(" irq-%d : %u\n", j, per_irq_sum);
-	}
-	
-	printk(" -----------------------------------------------------------------------------------\n" );
-	printk("\n");
-	printk(" softirq : %llu", (unsigned long long)sum_softirq);
-	printk(" -----------------------------------------------------------------------------------\n" );
-	
-	for (i = 0; i < NR_SOFTIRQS; i++)
-		if(per_softirq_sums[i]) printk(" softirq-%d : %u", i, per_softirq_sums[i]);
-			
-	printk(" -----------------------------------------------------------------------------------\n" );
-	return 0;
-}
-
-static struct GAForensicHELP{
-	unsigned int real_pc_from_context_sp;
-	unsigned int task_struct_of_gaf_proc;
-	unsigned int thread_info_of_gaf_proc;
-	unsigned int cpu_context_of_gaf_proc;
-}GAFHELP;
-
-DEFINE_SEMAPHORE(g_gaf_mutex);
-
-int gaf_proc(void* data)
-{
-	volatile int stack[2];
-
-	stack[0] = (int)('_fag');
-	stack[1] = (int)('corp');
-
-	down_interruptible(&g_gaf_mutex);
-	return 1;
-}
-
-void gaf_helper(void)
-{
-	unsigned int *ptr_task_struct;
-	unsigned int *ptr_thread_info;
-	unsigned int *ptr_cpu_cntx;
-	unsigned int ptr_sp, context_sp;
-	unsigned int fn_down_interruptible = (unsigned int)down_interruptible;
-	unsigned int fn_down = (unsigned int)down;
-
-	down_interruptible(&g_gaf_mutex);
-	ptr_task_struct = kthread_create(gaf_proc, NULL, "gaf-proc");
-	wake_up_process(ptr_task_struct);
-	msleep(100);
-
-	ptr_thread_info = *(unsigned int*)((unsigned int)ptr_task_struct + GAFINFO.task_struct_struct_stack);
-	ptr_cpu_cntx = (unsigned int)ptr_thread_info + GAFINFO.thread_info_struct_cpu_context;
-
-	GAFHELP.task_struct_of_gaf_proc = ptr_task_struct;
-	GAFHELP.thread_info_of_gaf_proc = ptr_thread_info;
-	GAFHELP.cpu_context_of_gaf_proc = ptr_cpu_cntx;
-
-	printk("\n========== kernel thread : gaf-proc ==========\n");
-	printk("task_struct at %x\n", ptr_task_struct);
-	printk("thread_info at %x\n\n", ptr_thread_info);
-
-	printk("saved_cpu_context at %x\n", ptr_cpu_cntx);
-	printk("%08x r4 :%08x r5 :%08x r6 :%08x r7 :%08x\n", ((unsigned int)ptr_cpu_cntx + 0x00), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x00), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x04), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x08), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x0c));
-	printk("%08x r8 :%08x r9 :%08x r10:%08x r11:%08x\n", ((unsigned int)ptr_cpu_cntx + 0x10), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x10), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x14), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x18), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x1c));
-	printk("%08x sp :%08x pc :%08x \n\n", ((unsigned int)ptr_cpu_cntx + 0x20), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x20), *(unsigned int*)((unsigned int)ptr_cpu_cntx + 0x24));
-	ptr_sp = context_sp = *(unsigned int*)((unsigned int)ptr_cpu_cntx + GAFINFO.cpu_context_save_struct_sp);
-
-	printk("searching saved pc which is stopped in down_interruptible() from %08x to %08x\n", ptr_sp, (unsigned int)ptr_thread_info + THREAD_SIZE);
-	printk("down_interruptible() is from %08x to %08x\n\n", fn_down_interruptible, fn_down);
-
-	while(ptr_sp < (unsigned int)ptr_thread_info + THREAD_SIZE) {
-		//printk("%08x at %08x\n", *(unsigned int*)ptr_sp, ptr_sp);
-		if( fn_down_interruptible <= *(unsigned int*)ptr_sp && *(unsigned int*)ptr_sp < fn_down ) {
-			printk("pc (%08x) is found at %08x\n", *(unsigned int*)ptr_sp, ptr_sp);
-			break;
-		}
-		ptr_sp += 4;
-	}
-
-	if(ptr_sp < (unsigned int)ptr_thread_info + THREAD_SIZE ) {
-
-		GAFHELP.real_pc_from_context_sp = ptr_sp -context_sp;	
-		printk("%08x r4 :xxxxxxxx r5 :%08x r6 :%08x r7 :%08x\n", (ptr_sp -0x2c), *(unsigned int*)(ptr_sp -0x28), *(unsigned int*)(ptr_sp -0x24), *(unsigned int*)(ptr_sp -0x20));
-		printk("%08x r8 :%08x r9 :%08x r10:%08x r11:%08x\n", (ptr_sp -0x1c), *(unsigned int*)(ptr_sp -0x1c), *(unsigned int*)(ptr_sp -0x18), *(unsigned int*)(ptr_sp -0x14), *(unsigned int*)(ptr_sp -0x10));
-		printk("%08x r12:%08x sp :%08x lr :%08x pc :%08x\n", (ptr_sp -0x0c), *(unsigned int*)(ptr_sp -0x0c), *(unsigned int*)(ptr_sp -0x08), *(unsigned int*)(ptr_sp -0x04), *(unsigned int*)(ptr_sp -0x00));
-	} else {
-		GAFHELP.real_pc_from_context_sp = 0xFFFFFFFF;
-		printk("pc is not found\n");
-	} 
-	printk("===================\n\n");
-}
-#endif
+#define CONFIG_LOGCAT_SIZE 64
 
 /*
  * struct logger_log - represents a specific log, such as 'main' or 'radio'
@@ -708,19 +435,6 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
 			 */
 			return -EFAULT;
 
-#ifdef CONFIG_APPLY_GA_SOLUTION
-// @message
-	memset(klog_buf,0,255);
-	if(strncmp(log->buffer + log->w_off, "!@", 2) == 0) {
-		if (count < 255)
-			memcpy(klog_buf,log->buffer + log->w_off, count);
-		else
-			memcpy(klog_buf,log->buffer + log->w_off, 255);
-
-		klog_buf[255]=0;
-	}
-#endif
-
 	log->w_off = logger_offset(log, log->w_off + count);
 
 	return count;
@@ -731,10 +445,6 @@ static ssize_t do_write_log_from_user(struct logger_log *log,
  * writev(), and aio_write(). Writes are our fast path, and we try to optimize
  * them above all else.
  */
-/* cpu currently holding logbuf_lock */
-#ifdef ADD_SYSTEM_TIMEINFO
-static volatile unsigned int logger_cpu = UINT_MAX;
-#endif
 ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 			 unsigned long nr_segs, loff_t ppos)
 {
@@ -743,13 +453,6 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	struct logger_entry header;
 	struct timespec now;
 	ssize_t ret = 0;
-
-#ifdef ADD_SYSTEM_TIMEINFO
-	char tbuf[50], *tp;
-	unsigned tlen;
-	unsigned long long t;
-	unsigned long nanosec_rem;
-#endif	
 
 	now = current_kernel_time();
 
@@ -760,19 +463,6 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	header.euid = current_euid();
 	header.len = min_t(size_t, iocb->ki_left, LOGGER_ENTRY_MAX_PAYLOAD);
 	header.hdr_size = sizeof(struct logger_entry);
-
-#ifdef ADD_SYSTEM_TIMEINFO
-	/* Follow the token with the time */
-	memset(tbuf, 0, sizeof(tbuf));
-
-	t = cpu_clock(logger_cpu);
-	nanosec_rem = do_div(t, 1000000000);
-	tlen = sprintf(tbuf, "[%5lu.%06lu] ",
-			(unsigned long) t,
-			nanosec_rem / 1000);
-	header.system_sec = (unsigned long) t;
-	header.system_nsec = nanosec_rem / 1000;
-#endif
 
 	/* null writes succeed, return zero */
 	if (unlikely(!header.len))
@@ -814,20 +504,7 @@ ssize_t logger_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	/* wake up any blocked readers */
 	wake_up_interruptible(&log->wq);
 
-#ifdef CONFIG_APPLY_GA_SOLUTION
-// @message
-	if(strncmp(klog_buf, "!@", 2) == 0)
-	{
-		printk("%s\n",klog_buf);
-	}
-#endif
-
 	return ret;
-}
-
-unsigned long get_platform_reset_count(void)
-{
-	return platform_reset_count;
 }
 
 static struct logger_log *get_log_from_minor(int);
@@ -1057,18 +734,11 @@ static struct logger_log VAR = { \
 	.head = 0, \
 	.size = SIZE, \
 };
-#if defined(CONFIG_MACH_DELOS_OPEN) || defined(CONFIG_MACH_ARUBA_OPEN) || defined(CONFIG_MACH_ARUBASLIM_OPEN) || defined(CONFIG_MACH_ARUBA_CTC) || defined(CONFIG_MACH_DELOS_CTC)
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 2048*1024)
-#else
-DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, 512*1024)
-#endif
-DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, 256*1024)
-#if defined(CONFIG_MACH_DELOS_OPEN)|| defined(CONFIG_MACH_ARUBA_OPEN) || defined(CONFIG_MACH_ARUBASLIM_OPEN) || defined(CONFIG_MACH_ARUBA_CTC)  || defined(CONFIG_MACH_DELOS_CTC)
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 2048*1024)
-#else
-DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, 256*1024)
-#endif
-DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, 256*1024)
+
+DEFINE_LOGGER_DEVICE(log_main, LOGGER_LOG_MAIN, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(log_events, LOGGER_LOG_EVENTS, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(log_radio, LOGGER_LOG_RADIO, CONFIG_LOGCAT_SIZE*1024)
+DEFINE_LOGGER_DEVICE(log_system, LOGGER_LOG_SYSTEM, CONFIG_LOGCAT_SIZE*1024)
 
 static struct logger_log *get_log_from_minor(int minor)
 {
@@ -1094,90 +764,15 @@ static int __init init_log(struct logger_log *log)
 		return ret;
 	}
 
-	printk("logger: created %luK log '%s'\n",
+	printk(KERN_INFO "logger: created %luK log '%s'\n",
 	       (unsigned long) log->size >> 10, log->misc.name);
 
 	return 0;
 }
 
-#ifdef CONFIG_APPLY_GA_SOLUTION
-/* Mark for GetLog */
-
-struct struct_plat_log_mark  {
-	u32 special_mark_1;
-	u32 special_mark_2;
-	u32 special_mark_3;
-	u32 special_mark_4;
-	void *p_main;
-	void *p_radio;
-	void *p_events;
-	void *p_system;
-};
-
-struct struct_marks_ver_mark {
-  u32 special_mark_1;
-  u32 special_mark_2;
-  u32 special_mark_3;
-  u32 special_mark_4;
-  u32 log_mark_version;
-  u32 framebuffer_mark_version;
-  void * this;
-  u32 first_size;
-  u32 first_start_addr;
-  u32 second_size;
-  u32 second_start_addr;
-  u32 third_size;
-  u32 third_start_addr;
-};
-
-
-static struct struct_plat_log_mark plat_log_mark = {
-	.special_mark_1 = (('*' << 24) | ('^' << 16) | ('^' << 8) | ('*' << 0)),
-	.special_mark_2 = (('I' << 24) | ('n' << 16) | ('f' << 8) | ('o' << 0)),
-	.special_mark_3 = (('H' << 24) | ('e' << 16) | ('r' << 8) | ('e' << 0)),
-	.special_mark_4 = (('p' << 24) | ('l' << 16) | ('o' << 8) | ('g' << 0)),
-	.p_main = 0, 
-	.p_radio = 0,
-	.p_events = 0,
-	.p_system = 0, 
-};
-
-
-static struct struct_marks_ver_mark marks_ver_mark = {
-  .special_mark_1 = (('*' << 24) | ('^' << 16) | ('^' << 8) | ('*' << 0)),
-  .special_mark_2 = (('I' << 24) | ('n' << 16) | ('f' << 8) | ('o' << 0)),
-  .special_mark_3 = (('H' << 24) | ('e' << 16) | ('r' << 8) | ('e' << 0)),
-  .special_mark_4 = (('v' << 24) | ('e' << 16) | ('r' << 8) | ('s' << 0)),
-  .log_mark_version = 1,
-  .framebuffer_mark_version = 1,
-  .this=(&marks_ver_mark + 0x200000),
-//  .first_size=256*1024*1024,
-  .first_size=512*1024*1024,
-  .first_start_addr=0x200000,
-  .second_size=0,
-  .second_start_addr=0,
-  .third_size=0,
-  .third_start_addr=0
-};
-#endif
-
 static int __init logger_init(void)
 {
 	int ret;
-
-#ifdef CONFIG_APPLY_GA_SOLUTION
-	/* Mark for GetLog */
-	plat_log_mark.p_main   = _buf_log_main+0x200000;
-	plat_log_mark.p_radio  = _buf_log_radio+0x200000;
-	plat_log_mark.p_events = _buf_log_events+0x200000;
-	plat_log_mark.p_system = _buf_log_system+0x200000;	
-	marks_ver_mark.log_mark_version = 1; 
-#endif
-
-#ifdef CONFIG_APPLY_GA_SOLUTION
-// GAF
-	gaf_helper();
-#endif
 
 	ret = init_log(&log_main);
 	if (unlikely(ret))

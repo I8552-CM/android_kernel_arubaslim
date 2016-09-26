@@ -8,12 +8,6 @@
 #include <linux/cpumask.h>
 #include <linux/nodemask.h>
 
-static inline struct user_namespace *seq_user_ns(struct seq_file *seq)
-{
-	extern struct user_namespace init_user_ns;
-	return &init_user_ns;
-}
-
 struct seq_operations;
 struct file;
 struct path;
@@ -148,6 +142,13 @@ int seq_put_decimal_ull(struct seq_file *m, char delimiter,
 int seq_put_decimal_ll(struct seq_file *m, char delimiter,
 			long long num);
 
+static inline struct user_namespace *seq_user_ns(struct seq_file *seq)
+{
+	extern struct user_namespace init_user_ns;
+	return &init_user_ns;
+}
+
+
 /**
  * seq_show_options - display mount options with appropriate escapes.
  * @m: the seq_file handle
@@ -182,6 +183,8 @@ static inline void seq_show_option(struct seq_file *m, const char *name,
 	val_buf[length] = '\0';				\
 	seq_show_option(m, name, val_buf);		\
 }
+
+
 
 #define SEQ_START_TOKEN ((void *)1)
 /*

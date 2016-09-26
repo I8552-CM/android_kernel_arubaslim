@@ -23,10 +23,6 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
-#include <asm/cacheflush.h>
-#ifdef CONFIG_SEC_DEBUG
-#include <linux/sec_debug.h>
-#endif
 
 #define PANIC_TIMER_STEP 100
 #define PANIC_BLINK_SPD 18
@@ -59,15 +55,6 @@ static long no_blink(int state)
 long (*panic_blink)(int state);
 EXPORT_SYMBOL(panic_blink);
 
-#if defined(CONFIG_MACH_ARUBA_OPEN) || defined(CONFIG_MACH_ARUBASLIM_OPEN) || defined(CONFIG_MACH_ARUBA_CTC) || \
-	defined(CONFIG_MACH_ROY) || defined(CONFIG_MACH_KYLEPLUS_CTC) || defined(CONFIG_MACH_DELOS_OPEN) || \
-	defined(CONFIG_MACH_DELOS_CTC) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
-#include "../arch/arm/mach-msm/smd_private.h"
-#include "../arch/arm/mach-msm/proc_comm.h"
-#include <mach/msm_iomap-7xxx.h>
-#include <mach/msm_iomap.h>
-#include <asm/io.h>
-#endif
 /*
  * Stop ourself in panic -- architecture code may override this
  */
@@ -85,13 +72,6 @@ void __weak panic_smp_self_stop(void)
  *
  *	This function never returns.
  */
-
-#ifdef CONFIG_APPLY_GA_SOLUTION
-extern void dump_all_task_info(void);
-extern void dump_cpu_stat(void);
-#endif
-
-
 void panic(const char *fmt, ...)
 {
 	static DEFINE_SPINLOCK(panic_lock);
@@ -99,19 +79,6 @@ void panic(const char *fmt, ...)
 	va_list args;
 	long i, i_next = 0;
 	int state = 0;
-#if defined(CONFIG_SEC_DEBUG)
-	unsigned size;
-	samsung_vendor1_id *smem_vendor1 = (samsung_vendor1_id *) \
-			smem_get_entry(SMEM_ID_VENDOR1, &size);
-#endif
-
-//ignore panic withing 1sec	
-#if defined(CONFIG_MACH_ARUBA_OPEN) ||  defined(CONFIG_MACH_ARUBA_CTC) || \
-	defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_DELOS_OPEN) || \
-	defined(CONFIG_MACH_DELOS_CTC)
-	unsigned long long time;
-	time = cpu_clock(smp_processor_id());
-#endif
 
 	/*
 	 * Disable local interrupts. This will prevent panic_smp_self_stop
@@ -134,10 +101,6 @@ void panic(const char *fmt, ...)
 	if (!spin_trylock(&panic_lock))
 		panic_smp_self_stop();
 
-#if defined(CONFIG_SEC_DEBUG) && defined (CONFIG_SEC_DEBUG_SCHED_LOG)
-	secdbg_sched_msg("!!panic!!");
-#endif
-
 	console_verbose();
 	bust_spinlocks(1);
 	va_start(args, fmt);
@@ -151,70 +114,7 @@ void panic(const char *fmt, ...)
 	if (!test_taint(TAINT_DIE) && oops_in_progress <= 1)
 		dump_stack();
 #endif
-//printk(KERN_EMERG "%s, %d\n",__func__, __LINE__);
-#if defined(CONFIG_SEC_DEBUG)
-	do {
-		extern void sec_save_final_context(void);
-		sec_save_final_context();
-	} while (0);
-#endif
 
-#ifdef CONFIG_SEC_DEBUG_SUBSYS
-	sec_debug_save_panic_info(buf,
-		(unsigned int)__builtin_return_address(0));
-#endif
-
-#ifdef CONFIG_APPLY_GA_SOLUTION
-	dump_all_task_info();
-	//dump_cpu_stat();	double fault is occurred if you call this function !
-#endif
-
-//printk(KERN_EMERG "%s, %d\n",__func__, __LINE__);
-#if defined(CONFIG_SEC_DEBUG)
-//printk(KERN_EMERG "%s, %d\n",__func__, __LINE__);
-//	smem_vendor1->ram_dump_level = 1; //TEMP ckid.chae
-	if (smem_vendor1 && smem_vendor1->ram_dump_level) {
-#if defined(CONFIG_MACH_ARUBA_OPEN) ||  defined(CONFIG_MACH_ARUBA_CTC) || \
-	defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_DELOS_OPEN) || \
-	defined(CONFIG_MACH_DELOS_CTC)
-		if((smem_vendor1->ram_dump_level==1)&&(time < 10000000000))
-			smem_vendor1->silent_reset = 0xFAFAFAFA;
-		else
-			writel_relaxed(0xCCCC, MSM_SHARED_RAM_BASE + 0x30);
-#else	
-		writel_relaxed(0xCCCC, MSM_SHARED_RAM_BASE + 0x30);
-#endif
-	} else if (smem_vendor1 != NULL) {
-			smem_vendor1->silent_reset = 0xAEAEAEAE;
-	} else {
-			printk(KERN_EMERG "smem_vendor1 is NULL\n");
-	}
-
-	if (strncmp(buf, "[Crash Key]", 11) == 0) {
-	  if (smem_vendor1 != NULL) {
-		memcpy(&(smem_vendor1->apps_dump.apps_string),\
-				"USER_FORCED_UPLOAD",\
-				sizeof("USER_FORCED_UPLOAD"));
-		} else {
-		  printk(KERN_EMERG "smem_vendor1 is NULL\n");
-		}
-         }
-         else
-		memcpy(&(smem_vendor1->apps_dump.apps_string),\
-				"Kernel panic",\
-				sizeof("Kernel panic"));
-
-	printk(KERN_EMERG "[PANIC] call msm_proc_comm_reset_modem_now func\n");
-#if defined(CONFIG_SEC_DEBUG) && defined (CONFIG_SEC_DEBUG_SCHED_LOG)
-	sec_debug_print_build_info();
-#endif
-
-	flush_cache_all();
-	outer_flush_all();
-//printk(KERN_EMERG "%s, %d\n",__func__, __LINE__);
-	msm_proc_comm_reset_modem_now();
-//printk(KERN_EMERG "%s, %d\n",__func__, __LINE__);
-#endif
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
 	 * everything else.

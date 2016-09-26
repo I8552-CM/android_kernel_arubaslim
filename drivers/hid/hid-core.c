@@ -659,7 +659,6 @@ int hid_parse_report(struct hid_device *device, __u8 *start,
 	struct hid_item item;
 	__u8 *end;
 	int ret;
-	int buf;
 	static int (*dispatch_type[])(struct hid_parser *parser,
 				      struct hid_item *item) = {
 		hid_parser_main,
@@ -668,21 +667,12 @@ int hid_parse_report(struct hid_device *device, __u8 *start,
 		hid_parser_reserved
 	};
 
-	buf = kmemdup(start, size, GFP_KERNEL);
-	if (buf == NULL)
-		return -ENOMEM;
-
 	if (device->driver->report_fixup)
-		start = device->driver->report_fixup(device, buf, &size);
-	else
-		start = buf;
+		start = device->driver->report_fixup(device, start, &size);
 
-	start = kmemdup(start, size, GFP_KERNEL);
-	kfree(buf);
-	if (start == NULL)
+	device->rdesc = kmemdup(start, size, GFP_KERNEL);
+	if (device->rdesc == NULL)
 		return -ENOMEM;
-
-	device->rdesc = start;
 	device->rsize = size;
 
 	parser = vzalloc(sizeof(struct hid_parser));
@@ -2133,6 +2123,16 @@ bool hid_ignore(struct hid_device *hdev)
 		if (hdev->product >= USB_DEVICE_ID_LOGITECH_HARMONY_FIRST &&
 				hdev->product <= USB_DEVICE_ID_LOGITECH_HARMONY_LAST)
 			return true;
+		/*
+		 * The Keene FM transmitter USB device has the same USB ID as
+		 * the Logitech AudioHub Speaker, but it should ignore the hid.
+		 * Check if the name is that of the Keene device.
+		 * For reference: the name of the AudioHub is
+		 * "HOLTEK  AudioHub Speaker".
+		 */
+		if (hdev->product == USB_DEVICE_ID_LOGITECH_AUDIOHUB &&
+			!strcmp(hdev->name, "HOLTEK  B-LINK USB Audio  "))
+				return true;
 		break;
 	case USB_VENDOR_ID_SOUNDGRAPH:
 		if (hdev->product >= USB_DEVICE_ID_SOUNDGRAPH_IMON_FIRST &&
@@ -2144,6 +2144,11 @@ bool hid_ignore(struct hid_device *hdev)
 		    hdev->product <= USB_DEVICE_ID_HANWANG_TABLET_LAST)
 			return true;
 		break;
+	case USB_VENDOR_ID_JESS:
+		if (hdev->product == USB_DEVICE_ID_JESS_YUREX &&
+				hdev->type == HID_TYPE_USBNONE)
+			return true;
+	break;
 	}
 
 	if (hdev->type == HID_TYPE_USBMOUSE &&

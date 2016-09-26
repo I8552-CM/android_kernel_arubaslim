@@ -98,10 +98,8 @@
 
 /* Control */
 #define SWITCH_OPEN		(1 << 4)
-#define RAW_DATA		(1 << 3)
 #define MANUAL_SWITCH	(1 << 2)
 #define WAIT			(1 << 1)
-#define INT_MASK		(1 << 0)
 
 /* Device Type 1 */
 #define DEV_USB_OTG			(1 << 7)
@@ -136,8 +134,6 @@
 #define AUTO	0x0
 
 /*Int1 mask*/
-#define LONG_KEY_PRESS  (1<<3)
-#define KEY_PRESS 		(1<<2)
 #define DEV_DETACH 		(1<<1)
 #define DEV_ATTACH 		(1<<0)
 
@@ -1221,8 +1217,6 @@ static void fsa9480_work_cb(struct work_struct *work)
 	struct fsa9480_info *usbsw =
 		container_of(work, struct fsa9480_info, work);
 	struct i2c_client *client = usbsw->client;
-
-	struct fsa9480_platform_data *pdata = usbsw->pdata;
 	struct delayed_work *dw = container_of(work, struct delayed_work, work);		
 	struct fsa9480_delay_wq *wq = container_of(dw, struct fsa9480_delay_wq, work_q);
 	u8 intr, intr2;

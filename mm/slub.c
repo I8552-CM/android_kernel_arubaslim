@@ -33,11 +33,6 @@
 
 #include <trace/events/kmem.h>
 
-#ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
-#include <linux/sec_debug.h>
-#endif
-
-
 /*
  * Lock order:
  *   1. slub_lock (Global Semaphore)
@@ -2298,13 +2293,18 @@ static __always_inline void *slab_alloc(struct kmem_cache *s,
 		return NULL;
 
 redo:
-
 	/*
 	 * Must read kmem_cache cpu data via this cpu ptr. Preemption is
 	 * enabled. We may switch back and forth between cpus while
 	 * reading from one cpu area. That does not matter as long
 	 * as we end up on the original cpu again when doing the cmpxchg.
+	 *
+	 * Preemption is disabled for the retrieval of the tid because that
+	 * must occur from the current processor. We cannot allow rescheduling
+	 * on a different processor between the determination of the pointer
+	 * and the retrieval of the tid.
 	 */
+	preempt_disable();
 	c = __this_cpu_ptr(s->cpu_slab);
 
 	/*
@@ -2314,7 +2314,7 @@ redo:
 	 * linked list in between.
 	 */
 	tid = c->tid;
-	barrier();
+	preempt_enable();
 
 	object = c->freelist;
 	if (unlikely(!object || !node_match(c, node)))
@@ -2560,10 +2560,11 @@ redo:
 	 * data is retrieved via this pointer. If we are on the same cpu
 	 * during the cmpxchg then the free will succedd.
 	 */
+	preempt_disable();
 	c = __this_cpu_ptr(s->cpu_slab);
 
 	tid = c->tid;
-	barrier();
+	preempt_enable();
 
 	if (likely(page == c->page)) {
 		set_freepointer(s, object, c->freelist);
@@ -3448,13 +3449,6 @@ void kfree(const void *x)
 {
 	struct page *page;
 	void *object = (void *)x;
-
-#ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
-	object = x = kfree_hook(x, __builtin_return_address(0));
-	if (!x)
-		return;
-#endif
-
 
 	trace_kfree(_RET_IP_, x);
 
