@@ -42,6 +42,9 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/hardware/gic.h>
+#ifdef CONFIG_KEXEC_HARDBOOT
+#include <asm/setup.h>
+#endif
 #include <mach/board.h>
 #include <mach/msm_iomap.h>
 #include <mach/msm_hsusb.h>
@@ -2592,8 +2595,19 @@ static void __init msm7627a_reserve(void)
 #endif
 }
 
+
 static void __init msm8625_reserve(void)
 {
+#ifdef CONFIG_KEXEC_HARDBOOT
+    // Reserve space for hardboot page at the end of first system ram block
+    struct membank* bank = &meminfo.bank[0];
+    phys_addr_t start = bank->start + bank->size - SZ_1M;
+    int ret = memblock_remove(start, SZ_1M);
+   if(!ret)
+        pr_info("Hardboot page reserved at 0x%X\n", start);
+    else
+        pr_err("Failed to reserve space for hardboot page at 0x%X!\n", start);
+#endif
 	memblock_remove(MSM8625_NON_CACHE_MEM, SZ_2K);
 	memblock_remove(MSM8625_CPU_PHYS, SZ_8);
 	memblock_remove(MSM8625_WARM_BOOT_PHYS, SZ_32);
