@@ -105,7 +105,7 @@ loop:	b	loop
 loop:	b	loop
 #elif defined(CONFIG_ARCH_MSM8625)
 	/* Restart using the PMIC chip, see mach-msm/restart.c */
-	ldr	r0, =MSM8960_TLMM_PHYS
+	ldr	r0, =MSM8625_TMR_PHYS
 	mov	r1, #0
 	str	r1, [r0, #0x820]  @ PSHOLD_CTL_SU
 loop:	b	loop

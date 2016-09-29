@@ -29,6 +29,9 @@
 #if defined(CONFIG_MACH_ARUBASLIM_OPEN)
 #include "../arch/arm/mach-msm/acpuclock.h"
 #endif
+#ifdef CONFIG_KEXEC_HARDBOOT
+#include <asm/kexec.h>
+#endif
 
 static uint32_t restart_reason = 0x776655AA;
 
@@ -159,11 +162,30 @@ static struct notifier_block msm_reboot_notifier = {
 	.notifier_call = msm_reboot_call,
 };
 
+#ifdef CONFIG_KEXEC_HARDBOOT
+static void msm_kexec_hardboot_hook(void)
+{
+#if defined(CONFIG_MSM_DLOAD_MODE) && !defined(CONFIG_SEC_DEBUG)
+    /* Do not enter download mode on reboot. */
+    set_dload_mode(0);
+#endif
+
+       /* Reboot with the recovery kernel since the boot kernel decompressor may
+     * not support the hardboot jump. */
+    __raw_writel(0x77665502, restart_reason);
+}
+#endif
+
+
 static int __init msm_pm_restart_init(void)
 {
 	int ret;
 
 	pm_power_off = msm_pm_power_off;
+#ifdef CONFIG_KEXEC_HARDBOOT
+    kexec_hardboot_hook = msm_kexec_hardboot_hook;
+#endif
+
 	arm_pm_restart = msm_pm_restart;
 
 	ret = register_reboot_notifier(&msm_reboot_notifier);
