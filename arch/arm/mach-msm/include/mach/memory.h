@@ -26,7 +26,7 @@
 #elif defined(CONFIG_MACH_M7_UL)
 #define KEXEC_HB_PAGE_ADDR		UL(0x88B00000)
 #elif defined(CONFIG_MACH_DELOS_OPEN)
-#define KEXEC_HB_PAGE_ADDR		UL(0x88900000)
+#define KEXEC_HB_PAGE_ADDR		UL(0xFC00000)
 #else
 #error "Adress for kexec hardboot page not defined"
 #endif
