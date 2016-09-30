@@ -13,6 +13,7 @@ cd ramdisk
 find . | cpio -o -H newc | gzip > ../boot.img-ramdisk
 cd ..
 gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
+cp scripts/initlogo_i8262.rle ramdisk/initlogo.rle
 ./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
 cp scripts/updater-script-aurb META-INF/com/google/android/updater-script
 zip -r tmp META-INF boot.img system 
