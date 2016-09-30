@@ -6,10 +6,8 @@
 
 #ifdef CONFIG_KEXEC_HARDBOOT
 #include <asm/memory.h>
-#if defined(CONFIG_ARCH_TEGRA_2x_SOC) || defined(CONFIG_ARCH_TEGRA_3x_SOC)
-  #include <mach/iomap.h>
-#elif defined(CONFIG_ARCH_APQ8064) || defined(CONFIG_ARCH_MSM8625)
-  #include <mach/msm_iomap.h>
+#if defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_APQ8064)
+#include <mach/msm_iomap.h>
 #endif
 #endif
 
@@ -91,21 +89,14 @@ hardboot:
 	ldr	r1, =KEXEC_HB_PAGE_MAGIC
 	str	r1, [r0]
 
-#if defined(CONFIG_ARCH_TEGRA_2x_SOC) || defined(CONFIG_ARCH_TEGRA_3x_SOC)
-	ldr     r0, =TEGRA_PMC_BASE
-	ldr	r1, [r0]
-	orr	r1, r1, #0x10
-	str	r1, [r0]
-loop:	b	loop
-#elif defined(CONFIG_ARCH_APQ8064)
-	/* Restart using the PMIC chip, see mach-msm/restart.c */
-	ldr	r0, =APQ8064_TLMM_PHYS
-	mov	r1, #0
-	str	r1, [r0, #0x820]  @ PSHOLD_CTL_SU
-loop:	b	loop
+#if defined(CONFIG_ARCH_MSM8625) || defined(CONFIG_ARCH_APQ8064)
+#if defined(CONFIG_ARCH_APQ8064)
+#define MSM_TLMM_PHYS APQ8064_TLMM_PHYS
 #elif defined(CONFIG_ARCH_MSM8625)
-	/* Restart using the PMIC chip, see mach-msm/restart.c */
-	ldr	r0, =MSM8625_TMR_PHYS
+#define MSM_TLMM_PHYS MSM8625_TMR_PHYS
+#endif
+	/* Hard reset via PMIC, decompressor jumps to kernel. */
+	ldr	r0, =MSM_TLMM_PHYS
 	mov	r1, #0
 	str	r1, [r0, #0x820]  @ PSHOLD_CTL_SU
 loop:	b	loop
@@ -115,6 +106,7 @@ loop:	b	loop
 
 	.ltorg
 #endif
+
 	.align
 
 	.globl kexec_start_address
