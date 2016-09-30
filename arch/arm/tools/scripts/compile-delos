@@ -6,7 +6,7 @@ mkdir system
 mkdir system/lib/
 mkdir system/lib/modules
 rsync -r `find -type f -name "*.ko"` system/lib/modules
-cp arch/arm/boot/zImage arch/arm/tools/zImage
+cp arch/arm/boot/Image arch/arm/tools/zImage
 mv system arch/arm/tools/
 cd arch/arm/tools
 cd ramdisk
