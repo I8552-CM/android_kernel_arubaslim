@@ -18,6 +18,6 @@ cp scripts/initlogo_i8262.rle ramdisk/initlogo.rle
 ./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
 cp scripts/updater-script-aurb META-INF/com/google/android/updater-script
 zip -r tmp META-INF boot.img system 
-rm META-INF/com/google/android/updater-script
+rm META-INF/com/google/android/updater-script ramdisk/initlogo.rle
 rm -rf system boot.img zImage mkbootimg boot.img-ramdisk
 mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.5.$version-UNOFFICIAL-aurbaslim.zip 
