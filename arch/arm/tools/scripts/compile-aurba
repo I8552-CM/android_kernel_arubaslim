@@ -2,6 +2,7 @@
 version=7
 make -j4 arubaslim_defconfig
 make -j4 
+/opt/toolchains/arm-eabi-4.7/bin/arm-eabi-strip --strip-unneeded `find -type f -name *.ko`
 mkdir system
 mkdir system/lib/
 mkdir system/lib/modules
