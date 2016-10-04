@@ -19,6 +19,11 @@ of these repos and their contributors.
 
 Changelog
 ---------
+v0.51
+* CRYPTO_AES_ARM_BS
+* Patch kernel from 3.4.102 to 3.4.103
+* More... (see commit log)
+
 v0.50
 * Huawei Battery updates from moddingg33k
 * swp_emulate: updates
