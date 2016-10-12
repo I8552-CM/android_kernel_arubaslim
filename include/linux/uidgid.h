@@ -67,62 +67,62 @@ static inline gid_t __kgid_val(kgid_t gid)
 #define INVALID_UID KUIDT_INIT(-1)
 #define INVALID_GID KGIDT_INIT(-1)
 
-static inline bool uid_eq(kuid_t left, kuid_t right)
+static int inline  uid_eq(kuid_t left, kuid_t right)
 {
 	return __kuid_val(left) == __kuid_val(right);
 }
 
-static inline bool gid_eq(kgid_t left, kgid_t right)
+static int inline  gid_eq(kgid_t left, kgid_t right)
 {
 	return __kgid_val(left) == __kgid_val(right);
 }
 
-static inline bool uid_gt(kuid_t left, kuid_t right)
+static int inline  uid_gt(kuid_t left, kuid_t right)
 {
 	return __kuid_val(left) > __kuid_val(right);
 }
 
-static inline bool gid_gt(kgid_t left, kgid_t right)
+static int inline  gid_gt(kgid_t left, kgid_t right)
 {
 	return __kgid_val(left) > __kgid_val(right);
 }
 
-static inline bool uid_gte(kuid_t left, kuid_t right)
+static int inline  uid_gte(kuid_t left, kuid_t right)
 {
 	return __kuid_val(left) >= __kuid_val(right);
 }
 
-static inline bool gid_gte(kgid_t left, kgid_t right)
+static int inline gid_gte(kgid_t left, kgid_t right)
 {
 	return __kgid_val(left) >= __kgid_val(right);
 }
 
-static inline bool uid_lt(kuid_t left, kuid_t right)
+static int inline  uid_lt(kuid_t left, kuid_t right)
 {
 	return __kuid_val(left) < __kuid_val(right);
 }
 
-static inline bool gid_lt(kgid_t left, kgid_t right)
+static int inline  gid_lt(kgid_t left, kgid_t right)
 {
 	return __kgid_val(left) < __kgid_val(right);
 }
 
-static inline bool uid_lte(kuid_t left, kuid_t right)
+static int inline  uid_lte(kuid_t left, kuid_t right)
 {
 	return __kuid_val(left) <= __kuid_val(right);
 }
 
-static inline bool gid_lte(kgid_t left, kgid_t right)
+static int inline  gid_lte(kgid_t left, kgid_t right)
 {
 	return __kgid_val(left) <= __kgid_val(right);
 }
 
-static inline bool uid_valid(kuid_t uid)
+static int inline  uid_valid(kuid_t uid)
 {
 	return !uid_eq(uid, INVALID_UID);
 }
 
-static inline bool gid_valid(kgid_t gid)
+static int inline  gid_valid(kgid_t gid)
 {
 	return !gid_eq(gid, INVALID_GID);
 }
@@ -161,16 +161,6 @@ static inline gid_t from_kgid_munged(struct user_namespace *to, kgid_t kgid)
 	if (gid == (gid_t)-1)
 		gid = overflowgid;
 	return gid;
-}
-
-static inline bool kuid_has_mapping(struct user_namespace *ns, kuid_t uid)
-{
-	return true;
-}
-
-static inline bool kgid_has_mapping(struct user_namespace *ns, kgid_t gid)
-{
-	return true;
 }
 
 #endif /* _LINUX_UIDGID_H */
