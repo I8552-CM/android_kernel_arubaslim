@@ -14,6 +14,6 @@ script:
 - git config --global user.email "androidlover5842@gmail.com"
 - git config --global user.name "grace5921"
 - git add .
-- git commit -S -m "add build output" 
+- git commit -m "add build output" 
 - git branch -m $(date +%Y%m%d)
-- git push https://fd7d8bfa71778eded37c451b4248aa3639775fe8@github.com/garbage-bin/BUILDS_OUTPUTS $(date +%Y%m%d)
+- git push https://23abab2352a5be840a692642f3bdf46ab940fe68@github.com/garbage-bin/BUILDS_OUTPUTS $(date +%Y%m%d)
