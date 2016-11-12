@@ -7,5 +7,7 @@ script:
 - export CROSS_COMPILE="$HOME/android_prebuilt_toolchains/arm-eabi-4.7/bin/arm-eabi-"
 - make -j4 delos_defconfig
 - make -j4 
-- mv arch/arm/boot/zImage zImage-$(date +%Y%m%d)
+- mv arch/arm/boot/zImage zImage
+- md5sum zImage > md5
+- mv zImage "zImage-$(date +%Y%m%d)-$(cat md5)"
 - curl --upload-file ./zImage-$(date +%Y%m%d) https://transfer.sh/zImage-$(date +%Y%m%d)
