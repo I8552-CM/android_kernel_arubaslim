@@ -9,8 +9,10 @@ script:
 - make -j4 delos_defconfig
 - make -j4 
 - git clone https://github.com/garbage-bin/BUILDS_OUTPUTS.git $HOME/kernel
-- mv arch/arm/zImage $HOME/kernel/zImage-$(date +%Y%m%d)
+- mv arch/arm/boot/zImage $HOME/kernel/zImage-$(date +%Y%m%d)
 - cd $HOME/kernel
+- git config --global user.email "androidlover5842@gmail.com"
+- git config --global user.name "grace5921"
 - git add .
 - git commit -S -m "add build output" 
 - git branch -m $(date +%Y%m%d)
