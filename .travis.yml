@@ -1,13 +1,11 @@
 language: c
 before_script:
 - git clone "https://github.com/ZIM555/android_prebuilts_gcc.git" "$HOME/android_prebuilt_toolchains"
-deploy:
-  skip_cleanup: true
+
 script:
 - export ARCH=arm
 - export CROSS_COMPILE="$HOME/android_prebuilt_toolchains/arm-eabi-4.7/bin/arm-eabi-"
 - make -j4 delos_defconfig
 - make -j4 
-- git clone https://github.com/garbage-bin/BUILDS_OUTPUTS.git $HOME/kernel
 - mv arch/arm/boot/zImage zImage-$(date +%Y%m%d)
 - curl --upload-file ./zImage-$(date +%Y%m%d) https://transfer.sh/zImage-$(date +%Y%m%d)
