@@ -1,0 +1,6 @@
+
+language: c
+before_script:
+- git clone -b "google_gcc" "https://github.com/TeamVee/android_prebuilt_toolchains" "../android_prebuilt_toolchains"
+script:
+- source build_kernel	
