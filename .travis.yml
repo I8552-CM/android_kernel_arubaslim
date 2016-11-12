@@ -10,4 +10,4 @@ script:
 - mv arch/arm/boot/zImage zImage
 - md5sum zImage > md5
 - mv zImage "zImage-$(date +%Y%m%d)-$(cat md5)"
-- curl --upload-file ./zImage-$(date +%Y%m%d) https://transfer.sh/zImage-$(date +%Y%m%d)
+- curl --upload-file "./zImage-$(date +%Y%m%d)-$(cat md5)" "https://transfer.sh/zImage-$(date +%Y%m%d)-$(cat md5)"
