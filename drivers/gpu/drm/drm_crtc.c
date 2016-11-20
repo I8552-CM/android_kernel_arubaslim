@@ -1836,11 +1836,8 @@ int drm_mode_setcrtc(struct drm_device *dev, void *data,
 	if (!drm_core_check_feature(dev, DRIVER_MODESET))
 		return -EINVAL;
 
-	/*
-	 * Universal plane src offsets are only 16.16, prevent havoc for
-	 * drivers using universal plane code internally.
-	 */
-	if (crtc_req->x & 0xffff0000 || crtc_req->y & 0xffff0000)
+	/* For some reason crtc x/y offsets are signed internally. */
+	if (crtc_req->x > INT_MAX || crtc_req->y > INT_MAX)
 		return -ERANGE;
 
 	mutex_lock(&dev->mode_config.mutex);
@@ -2945,7 +2942,7 @@ static struct drm_property_blob *drm_property_create_blob(struct drm_device *dev
 	struct drm_property_blob *blob;
 	int ret;
 
-	if (!length || length > ULONG_MAX - sizeof(struct drm_property_blob) || !data)
+	if (!length || !data)
 		return NULL;
 
 	blob = kzalloc(sizeof(struct drm_property_blob)+length, GFP_KERNEL);
