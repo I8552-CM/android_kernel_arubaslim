@@ -878,6 +878,26 @@ int hidinput_find_field(struct hid_device *hid, unsigned int type, unsigned int 
 }
 EXPORT_SYMBOL_GPL(hidinput_find_field);
 
+struct hid_field *hidinput_get_led_field(struct hid_device *hid)
+{
+	struct hid_report *report;
+	struct hid_field *field;
+	int i, j;
+
+	list_for_each_entry(report,
+			    &hid->report_enum[HID_OUTPUT_REPORT].report_list,
+			    list) {
+		for (i = 0; i < report->maxfield; i++) {
+			field = report->field[i];
+			for (j = 0; j < field->maxusage; j++)
+				if (field->usage[j].type == EV_LED)
+					return field;
+		}
+	}
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(hidinput_get_led_field);
+
 static void hidinput_led_worker(struct work_struct *work)
 {
 	struct hid_device *hid = container_of(work, struct hid_device,
@@ -916,6 +936,7 @@ static void hidinput_led_worker(struct work_struct *work)
 	hid->hid_output_raw_report(hid, buf, len, HID_OUTPUT_REPORT);
 	kfree(buf);
 }
+
 
 static int hidinput_input_event(struct input_dev *dev, unsigned int type,
 				unsigned int code, int value)
