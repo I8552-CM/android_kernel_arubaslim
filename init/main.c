@@ -399,6 +399,11 @@ EXPORT_SYMBOL(in_recovery_mode);
 unsigned int uart_mode = 0;
 EXPORT_SYMBOL(uart_mode);
 
+#if defined(CONFIG_VARIANT_SECOND_BOOTIMAGE)
+char Sales_Code[3];
+EXPORT_SYMBOL(Sales_Code);
+#endif
+
 /* Check for early params. */
 static int __init do_early_param(char *param, char *val)
 {
@@ -483,6 +488,13 @@ static int __init do_early_param(char *param, char *val)
 		if (strcmp(val, "1") == 0)
 			uart_mode = 1;
 	}
+#if defined(CONFIG_VARIANT_SECOND_BOOTIMAGE)
+	if ( (strcmp(param, "salescode") == 0 ) )
+	{
+		memset(Sales_Code,0x00,sizeof(Sales_Code));
+		memcpy(Sales_Code,val,3);
+	}
+#endif
 	return 0;
 }
 

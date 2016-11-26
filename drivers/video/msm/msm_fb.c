@@ -907,16 +907,66 @@ static struct platform_driver msm_fb_driver = {
 boolean wakeupflag = TRUE ; 
 #endif
 
+#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) || defined(CONFIG_MACH_NEVIS3G_REV03)
+static void memset32_io(u32 __iomem *_ptr, u32 val, size_t count)
+{
+	count >>= 2;
+	while (count--)
+		writel(val, _ptr++);
+}
+#endif
+
 static void msmfb_early_suspend(struct early_suspend *h)
 {
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+	unsigned int waitcount = 5;
+	unsigned int sleepflag = 0;
+#endif
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
-						    early_suspend);
+						early_suspend);
+	struct msm_fb_panel_data *pdata = NULL;
 
-        msm_fb_pan_idle(mfd);
+#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) || defined(CONFIG_MACH_NEVIS3G_REV03)
+	struct fb_info *fbi = mfd->fbi;
+#endif	
 
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+	while(waitcount){
+		if (!mfd->bl_level){
+			sleepflag = 1;
+			break;
+		}
+		msleep(20);
+		waitcount--;
+	}
+	if(sleepflag){
+		msm_fb_suspend_sub(mfd);
+		wakeupflag = TRUE;
+	}
+	else {
+		wakeupflag = FALSE;
+	}
+#else
 	msm_fb_suspend_sub(mfd);
-}
+#endif
 
+#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) || defined(CONFIG_MACH_NEVIS3G_REV03)
+//Sometimes, The screen is seen previous image for a moment
+	memset32_io((void *)fbi->screen_base, 0xFF000000, fbi->fix.smem_len);
+#endif
+
+	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
+	if (hdmi_prim_display &&
+		(mfd->panel_info.type == HDMI_PANEL ||
+		 mfd->panel_info.type == DTV_PANEL)) {
+		/* Turn off the HPD circuitry */
+		if (pdata->power_ctrl) {
+			MSM_FB_INFO("%s: Turning off HPD circuitry\n",
+				__func__);
+			pdata->power_ctrl(FALSE);
+		}
+	}
+}
 static void msmfb_early_resume(struct early_suspend *h)
 {
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
@@ -1037,7 +1087,9 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 								bl_min_lvl);
 
 	/* update current backlight to use new scaling*/
+#ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	msm_fb_set_backlight(mfd, curr_bl);
+#endif
 	up(&mfd->sem);
 
 	return ret;
@@ -1068,7 +1120,9 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 	} else {
 		unset_bl_level = 0;
 	}
-
+#ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
+	msm_fb_scale_bl(&temp);
+#endif
 	msm_fb_pan_idle(mfd);
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
@@ -1732,12 +1786,13 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	     mfd->index, fbi->var.xres, fbi->var.yres, fbi->fix.smem_len);
 
 #ifdef CONFIG_FB_MSM_LOGO
-#if defined(CONFIG_MACH_NEVIS3G_REV03) || defined(CONFIG_MACH_ROY) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC) || !defined (CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL)// because of strange bottom image display when booting
-#ifndef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
-	/* Flip buffer */
-	if (charging_boot != 1)	
-		if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported))
-			;
+#if defined(CONFIG_MACH_NEVIS3G_REV03) || defined(CONFIG_MACH_ROY) || !defined (CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL)// because of strange bottom image display when booting
+#if !defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) \
+	&& !defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+		/* Flip buffer */
+		if (charging_boot != 1)	
+			if (!load_565rle_image(INIT_IMAGE_FILE, bf_supported))
+				;
 #endif
 #endif
 #endif
