@@ -3455,11 +3455,11 @@ void kfree(const void *x)
 	struct page *page;
 	void *object = (void *)x;
 
-#ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
+/*#ifdef CONFIG_SEC_DEBUG_DOUBLE_FREE
 	object = x = kfree_hook(x, __builtin_return_address(0));
 	if (!x)
 		return;
-#endif
+#endif*/
 
 
 	trace_kfree(_RET_IP_, x);

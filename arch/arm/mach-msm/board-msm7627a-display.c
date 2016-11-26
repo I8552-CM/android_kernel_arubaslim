@@ -796,12 +796,6 @@ static struct platform_device mipi_dsi_NT35590_panel_device = {
 };
 */
 
-static int mipi_kyle_rotate_panel(void)
-{
-	int rotate = 1;
-	return rotate;
-}
-
 void mipi_kyle_gpio_init(void)
 {
 	// need to fill
@@ -810,47 +804,6 @@ void mipi_kyle_gpio_init(void)
 	}
 	return;
 }
-
-static uint32_t mipi_kyle_gpio_table[] = {
-	GPIO_CFG(GPIO_LCD_RESET_N,  0, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA),
-};
-
-static void config_mipi_kyle_gpio_table(uint32_t *table, int len, unsigned enable)
-{
-	int n, rc;
-
-	for (n = 0; n < len; n++) {
-		rc = gpio_tlmm_config(table[n],
-			enable ? GPIO_CFG_ENABLE : GPIO_CFG_DISABLE);
-		if (rc) {
-			printk(KERN_ERR "%s: gpio_tlmm_config(%#x)=%d\n",
-				__func__, table[n], rc);
-			break;
-		}
-	}
-}
-
-static int mipi_kyle_gpio_num[] = {
-        GPIO_LCD_RESET_N,
-};
-
-static void mipi_kyle_config_gpios(int enable)
-{
-	config_mipi_kyle_gpio_table(mipi_kyle_gpio_table,
-		ARRAY_SIZE(mipi_kyle_gpio_table), enable);
-}
-
-static struct msm_panel_common_pdata mipi_kyle_panel_data = {
-	.rotate_panel = mipi_kyle_rotate_panel,
-};
-
-static struct platform_device mipi_kyle_panel_device = {
-	.name   = "mipi_cmd_nt35510_wvga",
-	.id     = 0,
-	.dev    = {
-		.platform_data = &mipi_kyle_panel_data,
-	}
-};
 
 #if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) 
 static int mipi_HX8369B_rotate_panel(void)
