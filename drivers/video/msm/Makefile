@@ -91,6 +91,8 @@ obj-$(CONFIG_FB_MSM_LCDC_ILI9486L) += lcdc_ILI9486L_hvga.o lcdc_backlight.o
 
 ifeq ($(CONFIG_MACH_BAFFIN_DUOS_CTC),y)
 obj-$(CONFIG_FB_MSM_MIPI_DSI_HX8369B) += mipi_HX8369B_baffinduos.o lcdc_backlight_ic.o
+else ifeq ($(CONFIG_MACH_DELOS_OPEN),y)
+obj-$(CONFIG_FB_MSM_MIPI_DSI_HX8369B) += mipi_HX8369B_delos.o lcdc_backlight_ic.o
 else
 obj-$(CONFIG_FB_MSM_MIPI_DSI_HX8369B) += mipi_HX8369B.o lcdc_backlight_ic.o
 endif

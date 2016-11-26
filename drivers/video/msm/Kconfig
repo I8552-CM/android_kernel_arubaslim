@@ -1027,6 +1027,12 @@ config FB_MSM_EBI2_PANEL_DETECT
 	---help---
 	  Support for EBI2 panel auto detect
 
+config VARIANT_SECOND_BOOTIMAGE	  
+	bool "CONFIG_VARIANT_SECOND_BOOTIMAGE"
+	default n
+	help
+	  support for variant second bootimage
+
 config FB_MSM_QPIC_ILI_QVGA_PANEL
 	bool "Qpic MIPI ILI QVGA Panel"
 	select FB_MSM_QPIC

@@ -18,6 +18,9 @@
 static struct msm_panel_info pinfo;
 
 extern int charging_boot;
+#if defined(CONFIG_VARIANT_SECOND_BOOTIMAGE) 
+extern char Sales_Code[3];
+#endif
 
 /* DSI Bit Clock at 440 MHz, 2 lane, RGB888
 static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db_440 = {
@@ -208,7 +211,16 @@ static int mipi_video_hx8369b_wvga_pt_init(void)
 
 /* Temporary */
 	if (charging_boot != 1)
+	{
+#if defined(CONFIG_VARIANT_SECOND_BOOTIMAGE)
+		if((strncmp(Sales_Code, "ETR" ,3)==0) ||(strncmp(Sales_Code, "INS" ,3)==0) || (strncmp(Sales_Code, "INU" ,3)==0)
+			|| (strncmp(Sales_Code, "NPL" ,3)==0) || (strncmp(Sales_Code, "SLK" ,3)==0) || (strncmp(Sales_Code, "TML" ,3)==0)
+			|| (strncmp(Sales_Code, "XME" ,3)==0) || (strncmp(Sales_Code, "XSE" ,3)==0) )
+			load_565rle_image(INIT_IMAGE_VARIANT_FILE, 0);
+		else
+#endif
 		load_565rle_image(INIT_IMAGE_FILE, 0);
+	}
 
 	return ret;
 }
