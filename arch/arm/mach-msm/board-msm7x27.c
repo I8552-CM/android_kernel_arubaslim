@@ -63,7 +63,9 @@
 #ifdef CONFIG_SEC_DEBUG
 #include <linux/sec_debug.h>
 #endif
-
+#ifdef CONFIG_CMA
+#include <linux/dma-contiguous.h>
+#endif
 #define RESERVE_KERNEL_EBI1_SIZE	0x3A000
 #define MSM_RESERVE_AUDIO_SIZE	0xF0000
 #define BOOTLOADER_BASE_ADDR	0x10000
