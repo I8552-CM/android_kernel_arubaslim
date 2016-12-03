@@ -67,3 +67,4 @@ obj-$(CONFIG_MAX17048_FUELGAUGE)	+= fuelgauge_max17048.o
 obj-$(CONFIG_BATTERY_STC3115) += stc3115_battery.o
 obj-$(CONFIG_BATTERY_STC3115) += STC3115_ConfigRoy.o
 obj-$(CONFIG_BATTERY_STC3115_DELOS) += stc3115_battery_delos.o STC3115_ConfigSecure_delos.o
+obj-$(CONFIG_BATTERY_ANDROID)	+= android_battery.o
