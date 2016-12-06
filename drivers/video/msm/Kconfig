@@ -1013,6 +1013,13 @@ config FB_MSM_MIPI_SOLUTION_GPS_NOISE
 	bool "FB_MSM_MIPI_SOLUTION_GPS_NOISE"
 	default n
 
+config MACH_DELOS_OPEN_CHN
+        depends on ARCH_MSM8625
+        default n
+        bool "MSM8x25 DELOS OPEN CHN"
+        help
+          Support for the Qualcomm DELOS OPEN CHN
+
 config FB_MSM_EBI2_EPSON_S1D_QVGA_PANEL
 	bool "EBI2 Epson QVGA Panel"
 	select FB_MSM_EBI2
