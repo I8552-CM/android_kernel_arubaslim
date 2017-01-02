@@ -911,7 +911,7 @@ static struct sock *raw_get_first(struct seq_file *seq)
 			++state->bucket) {
 		struct hlist_node *node;
 
-		sk_for_each(sk, node, &state->h->ht[state->bucket])
+		sk_for_each(sk, &state->h->ht[state->bucket])
 			if (sock_net(sk) == seq_file_net(seq))
 				goto found;
 	}

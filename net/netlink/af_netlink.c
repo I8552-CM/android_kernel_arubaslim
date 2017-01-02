@@ -235,11 +235,10 @@ static struct sock *netlink_lookup(struct net *net, int protocol, u32 pid)
 	struct nl_pid_hash *hash = &nl_table[protocol].hash;
 	struct hlist_head *head;
 	struct sock *sk;
-	struct hlist_node *node;
 
 	read_lock(&nl_table_lock);
 	head = nl_pid_hashfn(hash, pid);
-	sk_for_each(sk, node, head) {
+	sk_for_each(sk, head) {
 		if (net_eq(sock_net(sk), net) && (nlk_sk(sk)->pid == pid)) {
 			sock_hold(sk);
 			goto found;
@@ -358,19 +357,16 @@ static int netlink_insert(struct sock *sk, struct net *net, u32 pid)
 	struct hlist_head *head;
 	int err = -EADDRINUSE;
 	struct sock *osk;
-	struct hlist_node *node;
 	int len;
 
 	netlink_table_grab();
 	head = nl_pid_hashfn(hash, pid);
 	len = 0;
-	sk_for_each(osk, node, head) {
+	sk_for_each(osk, head) {
 		if (net_eq(sock_net(osk), net) && (nlk_sk(osk)->pid == pid))
 			break;
 		len++;
 	}
-	if (node)
-		goto err;
 
 	err = -EBUSY;
 	if (nlk_sk(sk)->pid)
@@ -565,7 +561,7 @@ retry:
 	cond_resched();
 	netlink_table_grab();
 	head = nl_pid_hashfn(hash, pid);
-	sk_for_each(osk, node, head) {
+	sk_for_each(osk, head) {
 		if (!net_eq(sock_net(osk), net))
 			continue;
 		if (nlk_sk(osk)->pid == pid) {
@@ -1938,14 +1934,13 @@ static struct sock *netlink_seq_socket_idx(struct seq_file *seq, loff_t pos)
 	struct nl_seq_iter *iter = seq->private;
 	int i, j;
 	struct sock *s;
-	struct hlist_node *node;
 	loff_t off = 0;
 
 	for (i = 0; i < MAX_LINKS; i++) {
 		struct nl_pid_hash *hash = &nl_table[i].hash;
 
 		for (j = 0; j <= hash->mask; j++) {
-			sk_for_each(s, node, &hash->table[j]) {
+			sk_for_each(s, &hash->table[j]) {
 				if (sock_net(s) != seq_file_net(seq))
 					continue;
 				if (off == pos) {
