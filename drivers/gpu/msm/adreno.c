@@ -108,6 +108,7 @@ static struct adreno_device device_3d0 = {
 		},
 		.iomemname = KGSL_3D0_REG_MEMORY,
 		.ftbl = &adreno_functable,
+#if 0		
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		.display_off = {
 			.level = EARLY_SUSPEND_LEVEL_STOP_DRAWING,
@@ -115,6 +116,7 @@ static struct adreno_device device_3d0 = {
 			.resume = kgsl_late_resume_driver,
 		},
 #endif
+#endif		
 		.cmd_log = KGSL_LOG_LEVEL_DEFAULT,
 		.ctxt_log = KGSL_LOG_LEVEL_DEFAULT,
 		.drv_log = KGSL_LOG_LEVEL_DEFAULT,
@@ -971,7 +973,7 @@ a2xx_getchipid(struct kgsl_device *device)
 	/* 8x25 returns 0 for minor id, but it should be 1 */
 	if (cpu_is_qsd8x50())
 		patchid = 1;
-	else if (cpu_is_msm8625() && minorid == 0)
+	else if ((cpu_is_msm8625() || cpu_is_msm8625q()) && minorid == 0)
 		minorid = 1;
 
 	chipid |= (minorid << 8) | patchid;
@@ -3151,6 +3153,7 @@ static unsigned int adreno_isidle(struct kgsl_device *device)
 static int adreno_suspend_context(struct kgsl_device *device)
 {
 	int status = 0;
+
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 
 	/* switch to NULL ctxt */
