@@ -285,7 +285,11 @@ const int temp_table[][2] = {
 
 #define TOTAL_WATING_TIME			(20 * HZ)
 #define WAKE_LOCK_TIME_OUT		(5 * HZ)
+#if defined(CONFIG_BATTERY_STC3115_DELOS)
+#define ALARM_POLLING_TIME_SHORT       (1 * 30) //30 seconds
+#else
 #define ALARM_POLLING_TIME_SHORT	(1 * 60)
+#endif
 #define ALARM_POLLING_TIME_SHORT_10	(3 * 60)
 #define ALARM_POLLING_TIME_LONG	(10 * 60)
 
