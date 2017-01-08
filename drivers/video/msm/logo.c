@@ -61,7 +61,7 @@ static void memset16_rgb8888(void *_ptr, unsigned short val, unsigned count)
 	}
 }
 
-extern int mdp_resource_initialized;
+//extern int mdp_resource_initialized;
 /* 565RLE image format: [count(2 bytes), rle(2 bytes)] */
 int load_565rle_image(char *filename, bool bf_supported)
 {
@@ -81,9 +81,9 @@ int load_565rle_image(char *filename, bool bf_supported)
 	}
 
 #ifndef CONFIG_FRAMEBUFFER_CONSOLE
-	while(!mdp_resource_initialized) {
-		msleep(10);
-	}
+//	while(!mdp_resource_initialized) {
+//		msleep(10);
+//	}
 	owner = info->fbops->owner;
 	if (!try_module_get(owner))
 		return -ENODEV;
@@ -129,8 +129,13 @@ int load_565rle_image(char *filename, bool bf_supported)
 		unsigned n = ptr[0];
 		if (n > max)
 			break;
-		memset16(bits, ptr[1], n << 1);
-		bits += n;
+		if (info->var.bits_per_pixel >= 24) { /* rgb888 */
+			memset16_rgb8888(bits, ptr[1], n << 1);
+			bits += n * 2;
+		} else {
+			memset16(bits, ptr[1], n << 1);
+			bits += n;
+		}
 		max -= n;
 		ptr += 2;
 		count -= 4;
