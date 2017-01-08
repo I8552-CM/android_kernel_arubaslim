@@ -43,7 +43,6 @@
 #include <linux/sync.h>
 #include <linux/sw_sync.h>
 #include <linux/file.h>
-#include <linux/gpio.h>
 
 #define MSM_FB_C
 #include "msm_fb.h"
@@ -52,43 +51,31 @@
 #include "mdp.h"
 #include "mdp4.h"
 
-#if defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL) || defined(CONFIG_MACH_NEVIS3G)
+#if defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
 #include "lcdc_backlight_ic.h"
 extern int read_recovery;
 #endif
 
 extern int charging_boot;
+
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MSM_FB_NUM	3
-#endif
-
-#ifdef CONFIG_MACH_HENNESSY_DUOS_CTC
-#define DUAL_LCD
-#endif
-
-#ifdef DUAL_LCD
-#define FLIP_NOTINIT  -1
-#define FLIP_OPEN		1
-#define FLIP_CLOSE		0	
-
-#define LCD_SEL_toMAIN		0
-#define LCD_SEL_toSUB		1
-#define GPIO_LCD_SEL    113
-#define GPIO_BACKLIGHT_SEL    31
-
-extern int lcd_reset;
-struct msm_fb_data_type *lcd_mfd=NULL;
 #endif
 
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
 static boolean bf_supported;
+
 /* Set backlight on resume after 50 ms after first
  * pan display on the panel. This is to avoid panel specific
  * transients during resume.
  */
 unsigned long backlight_duration = (HZ/20);
+
+#ifdef CONFIG_FB_MSM_ALIGN_BUFFER
+static bool align_buffer = false;
+#endif
 
 static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
@@ -144,6 +131,12 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 static void msm_fb_scale_bl(__u32 *bl_lvl);
 static void msm_fb_commit_wq_handler(struct work_struct *work);
 static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
+static int hack_lcd = 1;
+boolean lcd_have_resume = FALSE;
+boolean last_backlight_setting = FALSE;
+int last_backlight_level = 0;
+
+
 
 #ifdef MSM_FB_ENABLE_DBGFS
 
@@ -209,22 +202,32 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 					enum led_brightness value)
 {
 	struct msm_fb_data_type *mfd = dev_get_drvdata(led_cdev->dev->parent);
-	u32 bl_lvl;
+	int bl_lvl;
 
-	if (value < 0)
-		value = 0;
 	if (value > MAX_BACKLIGHT_BRIGHTNESS)
 		value = MAX_BACKLIGHT_BRIGHTNESS;
 
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
-	bl_lvl = (2 * value * mfd->panel_info.bl_max + MAX_BACKLIGHT_BRIGHTNESS)
-		/(2 * MAX_BACKLIGHT_BRIGHTNESS);
+	bl_lvl = value;
 
 	if (!bl_lvl && value)
 		bl_lvl = 1;
-
-	msm_fb_set_backlight(mfd, bl_lvl);
+/* Remove qcom backlight mechanism,user our own */
+/* If LCD don't resume ,don't turn on LCD backlight */
+	if (hack_lcd) {
+		if(FALSE == lcd_have_resume) {
+			last_backlight_level = bl_lvl;
+			last_backlight_setting = TRUE;
+		} else {
+			msm_fb_set_backlight(mfd, bl_lvl);
+			last_backlight_setting = FALSE;
+		}
+	} else {
+		down(&mfd->sem);
+		msm_fb_set_backlight(mfd, bl_lvl);
+		up(&mfd->sem);
+	}
 }
 
 static struct led_classdev backlight_led = {
@@ -491,9 +494,6 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	MSM_FB_DEBUG("msm_fb_probe\n");
 
-#ifdef DUAL_LCD
-	lcd_mfd=(struct msm_fb_data_type *)platform_get_drvdata(pdev);
-#endif
 	if ((pdev->id == 0) && (pdev->num_resources > 0)) {
 		msm_fb_pdata = pdev->dev.platform_data;
 		fbram_size =
@@ -525,11 +525,11 @@ static int msm_fb_probe(struct platform_device *pdev)
 #ifdef CONFIG_APPLY_GA_SOLUTION
 	/* Mark for GetLog */
 	frame_buf_mark.p_fb = fbram_phys;
-#endif
-
+#endif	
+	
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
-	INIT_DELAYED_WORK(&mfd->backlight_worker, bl_workqueue_handler);
+	
 
 	if (!mfd)
 		return -ENODEV;
@@ -537,6 +537,8 @@ static int msm_fb_probe(struct platform_device *pdev)
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
 
+	INIT_DELAYED_WORK(&mfd->backlight_worker, bl_workqueue_handler);
+	
 	if (pdev_list_cnt >= MSM_FB_MAX_DEV_LIST)
 		return -ENOMEM;
 
@@ -573,6 +575,7 @@ static int msm_fb_probe(struct platform_device *pdev)
 	pdev_list[pdev_list_cnt++] = pdev;
 	msm_fb_create_sysfs(pdev);
         msm_fb_resolution_sysfs(pdev);
+
 	if (mfd->timeline == NULL) {
 		char timeline_name[MAX_TIMELINE_NAME_LEN];
 		snprintf(timeline_name, sizeof(timeline_name),
@@ -585,6 +588,7 @@ static int msm_fb_probe(struct platform_device *pdev)
 			mfd->timeline_value = 0;
 		}
 	}
+
 	return 0;
 }
 
@@ -596,17 +600,17 @@ static int msm_fb_remove(struct platform_device *pdev)
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
+  if (!mfd)
+        return -ENODEV;
+
+ if (mfd->key != MFD_KEY)
+        return -EINVAL;
+	
 	msm_fb_pan_idle(mfd);
 
 	msm_fb_remove_sysfs(pdev);
 
 	pm_runtime_disable(mfd->fbi->dev);
-
-	if (!mfd)
-		return -ENODEV;
-
-	if (mfd->key != MFD_KEY)
-		return -EINVAL;
 
 	if (msm_fb_suspend_sub(mfd))
 		printk(KERN_ERR "msm_fb_remove: can't stop the device %d\n", mfd->index);
@@ -664,7 +668,7 @@ static int msm_fb_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
-
+        
 	msm_fb_pan_idle(mfd);
 
 	console_lock();
@@ -915,7 +919,6 @@ static void memset32_io(u32 __iomem *_ptr, u32 val, size_t count)
 		writel(val, _ptr++);
 }
 #endif
-
 static void msmfb_early_suspend(struct early_suspend *h)
 {
 #ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
@@ -923,8 +926,11 @@ static void msmfb_early_suspend(struct early_suspend *h)
 	unsigned int sleepflag = 0;
 #endif
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
-						early_suspend);
-	struct msm_fb_panel_data *pdata = NULL;
+						    early_suspend);
+
+	
+	
+        msm_fb_pan_idle(mfd);
 
 #if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) || defined(CONFIG_MACH_NEVIS3G_REV03)
 	struct fb_info *fbi = mfd->fbi;
@@ -955,125 +961,26 @@ static void msmfb_early_suspend(struct early_suspend *h)
 	memset32_io((void *)fbi->screen_base, 0xFF000000, fbi->fix.smem_len);
 #endif
 
-	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-	if (hdmi_prim_display &&
-		(mfd->panel_info.type == HDMI_PANEL ||
-		 mfd->panel_info.type == DTV_PANEL)) {
-		/* Turn off the HPD circuitry */
-		if (pdata->power_ctrl) {
-			MSM_FB_INFO("%s: Turning off HPD circuitry\n",
-				__func__);
-			pdata->power_ctrl(FALSE);
-		}
-	}
-}
+}	
+
 static void msmfb_early_resume(struct early_suspend *h)
 {
 	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
 						    early_suspend);
+#ifdef CONFIG_FB_MSM_MIPI_DSI_WHITESCREEN
+	if(wakeupflag)
+#endif
 	msm_fb_resume_sub(mfd);
 }
 #endif
 
-#ifdef DUAL_LCD
-void msm_fb_turn_on_off_backlight(struct msm_fb_data_type *mfd, int on_off)
-{
-	int bl_hold;
-	struct msm_fb_panel_data *pdata;
-	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
-
-	if ((pdata) && (pdata->set_backlight)) {
-		down(&mfd->sem);
-		if (on_off){
-			pdata->set_backlight(mfd);
-		} else {
-			bl_hold = mfd->bl_level;
-			mfd->bl_level = 0;
-			pdata->set_backlight(mfd);
-			mfd->bl_level = bl_hold;
-		}
-		up(&mfd->sem);
-	}
-}
-static u8 msmfb_need_backlight_resume = 0;
-void msmfb_switch_dual_lcd(int flip_status_lcd)
-{
-	int prev_lcd_sel;
-	int lcd_sel; 
-	printk("===enter %s===\n", __FUNCTION__);
-
-	if (flip_status_lcd == FLIP_NOTINIT) {
-		return;
-	}
-	lcd_sel = (flip_status_lcd == FLIP_OPEN) ? LCD_SEL_toMAIN: LCD_SEL_toSUB;
-	
-	prev_lcd_sel = gpio_get_value(GPIO_LCD_SEL);
-
-	printk("%s, switching lcd_sel from:%s to:%s\n",
-		__FUNCTION__, (prev_lcd_sel == LCD_SEL_toSUB) ? "SUB-LCD" : "MAIN-LCD",
-		(lcd_sel == LCD_SEL_toSUB) ? "SUB-LCD" : "MAIN-LCD");
-
-	if (prev_lcd_sel == lcd_sel) {
-		printk("%s, ignore switching lcd_sel\n",__FUNCTION__);
-		return;
-	}
-
-	if (!lcd_mfd->panel_power_on) {
-		printk("[LCD]%s, ignore lcd flip because panel is not on\n",__FUNCTION__);
-		if (lcd_sel == LCD_SEL_toMAIN){
-			lcd_reset=22;
-			gpio_set_value(GPIO_LCD_SEL, LCD_SEL_toMAIN);
-			gpio_set_value(GPIO_BACKLIGHT_SEL, LCD_SEL_toMAIN);
-		} else {
-			lcd_reset=48;
-			gpio_set_value(GPIO_LCD_SEL, LCD_SEL_toSUB);
-			gpio_set_value(GPIO_BACKLIGHT_SEL, LCD_SEL_toSUB);
-		}
-		return;
-	}
-
-	msm_fb_turn_on_off_backlight(lcd_mfd,0);
-	msmfb_need_backlight_resume = 1;
-	if (lcd_sel == LCD_SEL_toMAIN) {
-		gpio_set_value(GPIO_LCD_SEL, LCD_SEL_toSUB);
-		//gpio_set_value(GPIO_BACKLIGHT_SEL, LCD_SEL_toSUB);
-		msmfb_early_suspend(&(lcd_mfd->early_suspend));
-		gpio_set_value(GPIO_LCD_SEL, LCD_SEL_toMAIN);
-		gpio_set_value(GPIO_BACKLIGHT_SEL, LCD_SEL_toMAIN);
-		lcd_reset=22;
-		msmfb_early_resume(&(lcd_mfd->early_suspend));
-		
-	} else {//change to sub lcd
-		gpio_set_value(GPIO_LCD_SEL, LCD_SEL_toMAIN);
-		//gpio_set_value(GPIO_BACKLIGHT_SEL, LCD_SEL_toMAIN);
-		msmfb_early_suspend(&(lcd_mfd->early_suspend));
-		gpio_set_value(GPIO_LCD_SEL, LCD_SEL_toSUB);
-		gpio_set_value(GPIO_BACKLIGHT_SEL, LCD_SEL_toSUB);
-		lcd_reset=48;
-		msmfb_early_resume(&(lcd_mfd->early_suspend));
-	}
-	printk("===exit %s===\n", __FUNCTION__);
-	return;
-}
-void msmfb_resume_backlight(void)
-{
-	if (msmfb_need_backlight_resume) {
-		msmfb_need_backlight_resume = 0;
-		mdelay(50);
-		msm_fb_turn_on_off_backlight(lcd_mfd,1);
-	}
-}
-
-EXPORT_SYMBOL(msmfb_switch_dual_lcd);
-EXPORT_SYMBOL(msmfb_resume_backlight);
-#endif
-static int unset_bl_level, bl_updated;
-static int bl_level_old;
 #if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
 static u16 screen_unblanked = 0;
 static u16 panel_initializing = 0;
 #endif
 
+static int unset_bl_level, bl_updated;
+static int bl_level_old;
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 						struct mdp_bl_scale_data *data)
 {
@@ -1087,9 +994,11 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 								bl_min_lvl);
 
 	/* update current backlight to use new scaling*/
-#ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
+	#ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
+
 	msm_fb_set_backlight(mfd, curr_bl);
-#endif
+        #endif
+
 	up(&mfd->sem);
 
 	return ret;
@@ -1098,6 +1007,7 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 static void msm_fb_scale_bl(__u32 *bl_lvl)
 {
 	__u32 temp = *bl_lvl;
+	pr_debug("%s: input = %d, scale = %d", __func__, temp, bl_scale);
 	if (temp >= bl_min_lvl) {
 		/* bl_scale is the numerator of scaling fraction (x/1024)*/
 		temp = ((*bl_lvl) * bl_scale) / 1024;
@@ -1106,29 +1016,45 @@ static void msm_fb_scale_bl(__u32 *bl_lvl)
 		if (temp < bl_min_lvl)
 			temp = bl_min_lvl;
 	}
+	pr_debug("%s: output = %d", __func__, temp);
 
 	(*bl_lvl) = temp;
 }
 
+/*must call this function from within mfd->sem*/
 void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 {
-	struct msm_fb_panel_data *pdata = NULL;
+	struct msm_fb_panel_data *pdata;
 	__u32 temp = bkl_lvl;
-	/*remove the bl_updated for the backlight in recovery can't light up*/
-	if (!mfd->panel_power_on) {
+#ifdef CONFIG_MACH_ROY     
+//// for debugging backlight temporalily. so later should be removed.
+	printk("[BL] bkl_lvl : %d ,panel_power_on: %d, bl_updated : %d\n",bkl_lvl,mfd->panel_power_on,bl_updated);
+#endif
+/* Remove qcom backlight mechanism,user our own */
+	
+#if !defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) && !defined(CONFIG_MACH_KYLEPLUS_OPEN) && !defined(CONFIG_MACH_INFINITE_DUOS_CTC)
+	if (!hack_lcd) {
+	if (!mfd->panel_power_on || !bl_updated) {
+		mfd->bl_level = bkl_lvl;
 		unset_bl_level = bkl_lvl;
 		return;
 	} else {
 		unset_bl_level = 0;
+	}	  
 	}
+#endif
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	msm_fb_scale_bl(&temp);
 #endif
 	msm_fb_pan_idle(mfd);
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 
-	if ((pdata) && (pdata->set_backlight)) {
-		msm_fb_scale_bl(&temp);
+	if (!pdata)
+		return;
+	if (!pdata->set_backlight)
+		return;
+
+	if (!hack_lcd) {
 		if (bl_level_old == temp) {
 			return;
 		}
@@ -1136,9 +1062,17 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 		pdata->set_backlight(mfd);
 		mfd->bl_level = bkl_lvl;
 		bl_level_old = temp;
-	}
+	} else {
+		if (bl_level_old == bkl_lvl) {
+			return;
+		}
+				down(&mfd->dma->mutex);
+				mfd->bl_level = bkl_lvl;
+				pdata->set_backlight(mfd);
+				up(&mfd->dma->mutex);
+                             bl_level_old = mfd->bl_level;
+          }
 }
-
 static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 			    boolean op_enable)
 {
@@ -1158,15 +1092,42 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 	switch (blank_mode) {
 	case FB_BLANK_UNBLANK:
 		if (!mfd->panel_power_on) {
+#if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC)  || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
+			down(&mfd->sem);
+			panel_initializing = 1;
+			pdata->set_backlight(mfd);
+			up(&mfd->sem);	
+			
+			ret = pdata->on(mfd->pdev);
+			// NOTICE:
+			// it should delay here to avoid flash caused by display_on command
+			// please set it in the pdata->on() according to your LCD
+
+			down(&mfd->sem);
+			panel_initializing = 0;
+			pdata->set_backlight(mfd);
+			up(&mfd->sem);		
+#else		  
 			msleep(16);
 			ret = pdata->on(mfd->pdev);
+#endif			
 			if (ret == 0) {
 				mfd->panel_power_on = TRUE;
                                 mfd->panel_driver_on = mfd->op_enable;
 			}
+/* LCD resume completed ,then turn on lcd backlight */
+			if (ret == 0 && hack_lcd) {
+				lcd_have_resume = TRUE;
+				/* Remove qcom backlight mechanism,user our own */
+				if(TRUE == last_backlight_setting)
+				{
+					msm_fb_set_backlight(mfd,last_backlight_level);
+					last_backlight_setting = FALSE;
+					printk("%s:Waiting for LCD resume ,then set backlight level=%d\n",__func__,last_backlight_level);
+				}
 		}
+	}	
 		break;
-
 	case FB_BLANK_VSYNC_SUSPEND:
 	case FB_BLANK_HSYNC_SUSPEND:
 	case FB_BLANK_NORMAL:
@@ -1175,19 +1136,28 @@ static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
 		if (mfd->panel_power_on) {
 			int curr_pwr_state;
 
+	                        if (hack_lcd)
+				lcd_have_resume = FALSE;
+
 			mfd->op_enable = FALSE;
 			curr_pwr_state = mfd->panel_power_on;
 			mfd->panel_power_on = FALSE;
-			cancel_delayed_work_sync(&mfd->backlight_worker);
-			bl_updated = 0;
-			// let screen light off smoothly, because backlight is turning off in another thread now
-			// if need delay more, please set it in the pdata->off()
+
+			if (!hack_lcd) {      /* Remove qcom backlight mechanism,user our own */
+				cancel_delayed_work_sync(&mfd->backlight_worker);
+				bl_updated = 0;
+			}
+
 			msleep(16);
 			ret = pdata->off(mfd->pdev);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
 
-                        msm_fb_release_timeline(mfd);
+#if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
+			screen_unblanked = 0;
+#endif			
+			
+			msm_fb_release_timeline(mfd);
 			mfd->op_enable = TRUE;
 		}
 		break;
@@ -1200,6 +1170,13 @@ int calc_fb_offset(struct msm_fb_data_type *mfd, struct fb_info *fbi, int bpp)
 {
 	struct msm_panel_info *panel_info = &mfd->panel_info;
 	int remainder, yres, offset;
+
+#ifdef CONFIG_FB_MSM_ALIGN_BUFFER
+	if (!align_buffer)
+	{
+		return fbi->var.xoffset * bpp + fbi->var.yoffset * fbi->fix.line_length;
+	}
+#endif
 
 	if (panel_info->mode2_yres != 0) {
 		yres = panel_info->mode2_yres;
@@ -1615,7 +1592,7 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 #if defined(CONFIG_MACH_ARUBASLIM_OPEN)
 	var->height = panel_info->height;/* height of picture in mm */
 	var->width  = panel_info->width;/* width of picture in mm */
-#endif
+#endif	
 	var->xres_virtual = panel_info->xres;
 	var->yres_virtual = panel_info->yres * mfd->fb_page +
 		((PAGE_SIZE - remainder)/fix->line_length) * mfd->fb_page;
@@ -1704,6 +1681,8 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 
 	fbi->screen_base = fbram;
 	fbi->fix.smem_start = (unsigned long)fbram_phys;
+	
+        memset(fbi->screen_base, 0x0, fix->smem_len);
 
 	msm_iommu_map_contig_buffer(fbi->fix.smem_start,
 					DISPLAY_WRITE_DOMAIN,
@@ -1935,10 +1914,6 @@ static int msm_fb_register(struct msm_fb_data_type *mfd)
 	}
 #endif /* MSM_FB_ENABLE_DBGFS */
 
-#if	(defined(CONFIG_FB_MSM_LOGO) && defined(CONFIG_MACH_HENNESSY_DUOS_CTC)) || defined(CONFIG_MACH_NEVIS3G)
-	msleep(25);
-	backlight_ic_set_brightness(160);
-#endif
 	return ret;
 }
 
@@ -2117,24 +2092,24 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 		if (!mfd->panel_power_on) /* suspended */
 			return -EPERM;
 	} else {
-		/*
+	/*
 		 * If framebuffer is 2, io pan display is not allowed.
-		 */
-		if (bf_supported && info->node == 2) {
-			pr_err("%s: no pan display for fb%d!",
-				   __func__, info->node);
+	 */
+	if (bf_supported && info->node == 2) {
+		pr_err("%s: no pan display for fb%d!",
+		       __func__, info->node);
+		return -EPERM;
+	}
+
+	if (info->node != 0 || mfd->cont_splash_done)	/* primary */
+		if ((!mfd->op_enable) || (!mfd->panel_power_on))
 			return -EPERM;
-		}
 
-		if (info->node != 0 || mfd->cont_splash_done)	/* primary */
-			if ((!mfd->op_enable) || (!mfd->panel_power_on))
-				return -EPERM;
+	if (var->xoffset > (info->var.xres_virtual - info->var.xres))
+		return -EINVAL;
 
-		if (var->xoffset > (info->var.xres_virtual - info->var.xres))
-			return -EINVAL;
-
-		if (var->yoffset > (info->var.yres_virtual - info->var.yres))
-			return -EINVAL;
+	if (var->yoffset > (info->var.yres_virtual - info->var.yres))
+		return -EINVAL;
 	}
 	msm_fb_pan_idle(mfd);
 
@@ -2142,13 +2117,13 @@ static int msm_fb_pan_display_ex(struct fb_info *info,
 
 	if (!(disp_commit->flags &
 		MDP_DISPLAY_COMMIT_OVERLAY)) {
-		if (info->fix.xpanstep)
-			info->var.xoffset =
+	if (info->fix.xpanstep)
+		info->var.xoffset =
 				(var->xoffset / info->fix.xpanstep) *
 					info->fix.xpanstep;
 
-		if (info->fix.ypanstep)
-			info->var.yoffset =
+	if (info->fix.ypanstep)
+		info->var.yoffset =
 				(var->yoffset / info->fix.ypanstep) *
 					info->fix.ypanstep;
 	}
@@ -2175,6 +2150,8 @@ static int msm_fb_pan_display(struct fb_var_screeninfo *var,
         memcpy(&disp_commit.var, var, sizeof(struct fb_var_screeninfo));
 	return msm_fb_pan_display_ex(info, &disp_commit);
 }
+
+static bool is_first_frame = TRUE;
 
 static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 			      struct fb_info *info)
@@ -2253,7 +2230,7 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	mutex_unlock(&msm_fb_notify_update_sem);
 
 	down(&msm_fb_pan_sem);
-        msm_fb_wait_for_fence(mfd);
+	msm_fb_wait_for_fence(mfd);
 	if (info->node == 0 && !(mfd->cont_splash_done)) { /* primary */
 		mdp_set_dma_pan_info(info, NULL, TRUE);
 		if (msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable)) {
@@ -2265,20 +2242,35 @@ static int msm_fb_pan_display_sub(struct fb_var_screeninfo *var,
 
 	mdp_set_dma_pan_info(info, dirtyPtr,
 			     (var->activate & FB_ACTIVATE_VBL));
+/* Do not refresh the first frame, because the frame's data is 0x00 */
+	if (hack_lcd && is_first_frame) {
+		is_first_frame = FALSE;
+		printk("%s:Don't refresh the first frame to LCD\n",__func__);
+	} else {
 	/* async call */
-
 	mdp_dma_pan_update(info);
+	}
 	msm_fb_signal_timeline(mfd);
 	up(&msm_fb_pan_sem);
 	
-	if (unset_bl_level && !bl_updated)
-
+#if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
+	if (mfd->panel_power_on && !screen_unblanked) {
+		pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
+		if ((pdata) && (pdata->unblank)) {
+			pdata->unblank(mfd->pdev);
+			screen_unblanked = 1;
+ 		}
+ 	}
+ 
+#else
+#if defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
+	if (!hack_lcd && unset_bl_level && !bl_updated && mfd->panel_power_on) 
+#else
+	if (!hack_lcd && unset_bl_level && !bl_updated)
+#endif
 		schedule_delayed_work(&mfd->backlight_worker,
 				backlight_duration);
-
-	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
-		mdp_free_splash_buffer(mfd);
-
+#endif
 	++mfd->panel_info.frame_count;
 	return 0;
 }
@@ -2299,7 +2291,7 @@ static void msm_fb_commit_wq_handler(struct work_struct *work)
 		msm_fb_pan_display_sub(var, info);
        } else {
                var = &fb_backup->disp_commit.var;
-               msm_fb_pan_display_sub(var, info);
+	msm_fb_pan_display_sub(var, info);
 	}
 	mutex_lock(&mfd->sync_mutex);
 	mfd->is_committing = 0;
@@ -2438,7 +2430,6 @@ static int msm_fb_set_par(struct fb_info *info)
 	int old_imgType;
 	int blank = 0;
 	msm_fb_pan_idle(mfd);
-
 	old_imgType = mfd->fb_imgType;
 	switch (var->bits_per_pixel) {
 	case 16:
@@ -2493,24 +2484,13 @@ static int msm_fb_set_par(struct fb_info *info)
 
 		msm_fb_blank_sub(FB_BLANK_UNBLANK, info, mfd->op_enable);
 	}
-
 #if defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
-#if defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
-	if(first_boot==1)
-	{
-		first_boot=0;
-		msleep(50);
-		backlight_ic_set_brightness(160);
-		
-	}
-#endif
 	if( read_recovery > 0 )
 	{
 		msleep(25);
 		backlight_ic_set_brightness(160);
 	}
 #endif
-
 	return 0;
 }
 
@@ -3467,6 +3447,7 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 	int	ret;
 	struct msmfb_overlay_data req;
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+    struct msm_fb_panel_data *pdata;
 
 	if (mfd->overlay_play_enable == 0)	/* nothing to do */
 		return 0;
@@ -3497,22 +3478,23 @@ static int msmfb_overlay_play(struct fb_info *info, unsigned long *argp)
 
 	ret = mdp4_overlay_play(info, &req);
 
+
+		
 #if defined(CONFIG_FB_MSM_MIPI_CMD_PANEL_AVOID_MOSAIC) || defined(CONFIG_MACH_KYLEPLUS_OPEN) || defined(CONFIG_MACH_INFINITE_DUOS_CTC)
 	if (mfd->panel_power_on && !screen_unblanked) {
 		pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 		if ((pdata) && (pdata->unblank)) {
 			pdata->unblank(mfd->pdev);
 			screen_unblanked = 1;
-		}
-	}
-
+ 		}
+ 	}
 #else
-	if (unset_bl_level && !bl_updated)
+   /* Remove qcom backlight mechanism,user our own */
+	if (!hack_lcd && unset_bl_level && !bl_updated)
 		schedule_delayed_work(&mfd->backlight_worker,
 				backlight_duration);
-#endif
-
-	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
+#endif		
+ 	if (info->node == 0 && (mfd->cont_splash_done)) /* primary */
 		mdp_free_splash_buffer(mfd);
 
 	return ret;
@@ -4372,6 +4354,8 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		if (ret)
 			return ret;
 		ret = msmfb_handle_metadata_ioctl(mfd, &mdp_metadata);
+		break;
+		
 	case MSMFB_DISPLAY_COMMIT:
 		ret = msmfb_display_commit(info, argp);
 		break;
@@ -4548,7 +4532,6 @@ struct platform_device *msm_fb_add_device(struct platform_device *pdev)
 	return this_dev;
 }
 EXPORT_SYMBOL(msm_fb_add_device);
-
 #ifdef CONFIG_SEC_DEBUG_SUBSYS
 int get_fbinfo(int fb_num, unsigned int *fb_paddr, unsigned int *xres,
 		unsigned int *yres, unsigned int *bpp,
@@ -4582,8 +4565,6 @@ int get_fbinfo(int fb_num, unsigned int *fb_paddr, unsigned int *xres,
 	return 0;
 }
 #endif
-
-
 int get_fb_phys_info(unsigned long *start, unsigned long *len, int fb_num,
 	int subsys_id)
 {
@@ -4708,5 +4689,9 @@ int msm_fb_v4l2_update(void *par, bool bUserPtr,
 #endif
 }
 EXPORT_SYMBOL(msm_fb_v4l2_update);
+
+#ifdef CONFIG_FB_MSM_ALIGN_BUFFER
+module_param(align_buffer, bool, 0644);
+#endif
 
 module_init(msm_fb_init);
