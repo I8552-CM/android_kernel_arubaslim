@@ -1,10 +1,12 @@
 language: c
 before_script:
 - git clone "https://github.com/ZIM555/android_prebuilts_gcc.git" "$HOME/android_prebuilt_toolchains"
+- sudo apt-get install lzop
 script:
 - export CROSS_COMPILE="$HOME/android_prebuilt_toolchains/arm-eabi-4.7/bin/arm-eabi-"
 - "./build_kernel"
 deploy:
+  skip_cleanup: true
   provider: releases
   api_key:
     secure: BJMkpqlsAWoEl8hbQBygZJJ8Q+vz7MSSG+EvXAdhV1pkSZILekExOih+ZN5BpYnpj4NFnHeNh7pjUu6ejVYv30u7MOLcA7iTZQ9oU3nJCLeqHlJ1Pl25Exppd6dUpsMHbAlH1sTbw7jsXim0Z+tOySqKi3pocnEK8OOJKn8tE/gENghy+EwKoZBe+G0Be3ASXjxXR3fu6FmjNOdp3Ev5kL5hrl/GigrDDtmon3nEV6ChksfPS6p/3Y+xmyk8Bwqpx1PMiq//rBqpgdJJz8KJpz78RBVETclNyR+h/Y8BEMHHBjtW6vp/pA4n3aCyoAXz/zcvF0MMQ00N/UGFKLcS0WAsx2yEB+B3aQ9mge7j63tmnthlzG+7AcOW3NmlQawPBd+0izBYUrt4U4FKptgGRD302kdCPHFU0+Y3CBeFUi/zbEZQ2NHsFYNsDaV62pkCQIbYQVMKTuuIDWufTE+U7+HZi3oRJqNJzegXX8b4bFy4qkn8GcTBRb2cYIYFdAkkvN8BWzDJybaviP+oEyPrjYaiHLwkVWc3bnPHLJRx6+Gciu2fejZi62UO57yTUdLP6+amaLR5v5o5234PU4CmviLUbjeK90oPxw/076cMgHwk4a2BkE2h+1TD3jyM8GiHCaLr1weO8j5Rc1JtvM/6CQXv8JCS6veL0quXEztkJZI=
