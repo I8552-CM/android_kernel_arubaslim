@@ -1,0 +1,23 @@
+#!/bin/bash
+version=0
+make -j4 arubaslim_defconfig
+make -j4 
+/opt/toolchains/arm-eabi-4.7/bin/arm-eabi-strip --strip-unneeded `find -type f -name *.ko`
+mkdir system
+mkdir system/lib/
+mkdir system/lib/modules
+rsync -r `find -type f -name "*.ko"` system/lib/modules
+cp arch/arm/boot/Image arch/arm/tools/zImage
+mv system arch/arm/tools/
+cd arch/arm/tools
+#cd ramdisk
+#find . | cpio -o -H newc | gzip > ../boot.img-ramdisk
+#cd ..
+gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
+#cp scripts/initlogo.rle ramdisk/initlogo.rle
+./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk.gz --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
+cp scripts/updater-script META-INF/com/google/android/updater-script
+zip -r tmp META-INF boot.img system 
+rm META-INF/com/google/android/updater-script
+rm -rf system boot.img zImage mkbootimg boot.img-ramdisk.gz
+mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.$version-UNOFFICIAL-aurbaslim.zip 

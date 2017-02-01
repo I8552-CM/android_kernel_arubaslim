@@ -1,0 +1,16 @@
+language: c
+before_script:
+- git clone "https://github.com/ZIM555/android_prebuilts_gcc.git" "$HOME/android_prebuilt_toolchains"
+
+script:
+- export CROSS_COMPILE="$HOME/android_prebuilt_toolchains/arm-eabi-4.7/bin/arm-eabi-"
+- ./build_kernel
+deploy:
+  skip_cleanup: true
+  provider: releases
+  api_key:
+    secure: TCBv19wKZuBFqEiQapdCJfmLkF5gzTeLEwEUZB5vpZnTxtlpwn3OGt7+RXJMp7efkQTHpb5JUoNO07jwOFU7BzEZbH1/873zZXA6gmxrF4lsRAmNMLDCyOm0Iq8gUqWoSeDV0kyMzQFG8f5h7DX4IcVpD9pqUhBtzTRe7I15TJvV6BtE79eNzIrmniCU4H+gOezXtn6ghOxy6cHbh3cmlig0IbkVlYOpWJdTr9z6939B2cgrT5dVvZncRS4zJvkXaRlk6aVZvwpvAux/N2u9Squp/BmKR2IhmbOEiMa6MJKB7+K23VIDa75RKNUOrplrtWCxdqUkwAeK8sTeUC2m8KS9JC11MXqcVeNWNhnNc62Oi5cjBV5XtTYkgYgUYftAh8832YyPQKyGES6sbKf2RNDvjJYXHaIYRBor1bCFU81PjzfVMWas8PTpZO5Y5UKVza7bbQg2rtbOuKRTKdl/ESDMtMfCy25ARO1Mjvxw3o2AN7U1qxtiUSu7PRO56gpgBzQ509MM2uoTBS3aGbbEHdiKJV3Ek/bW7yoGLhy++19UxMO/2xKLJa0l9ow7eaNjeTW5bWtD0kSSI4bcEFaQJ2S6gU/NyK1iaOpFIUIpAvpp5mMhK4/cYDA6Zy25FSd5cSKlX5KopKwTtVU0iqjN4RCm1V+D4ONLU8h55X3rnvM=
+  file: "./kernel-$(date +%Y%m%d)-3.4.0-UNOFFICIAL-aurbaslim.zip "
+  on:
+    repo: Arubadel/Arubadel
+
