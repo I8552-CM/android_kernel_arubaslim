@@ -37,7 +37,38 @@ static int lcd_brightness = -1;
 #else
 static int lcd_brightness = -1;
 #endif
-#if defined(CONFIG_MACH_BAFFIN_DUOS_CTC)
+#if defined(CONFIG_MACH_DELOS_OPEN_CHN) || defined(CONFIG_MACH_DELOS_DUOS_CTC)
+struct brt_value brt_table_aat[] = {
+	{ 255, 3 }, /* Max */
+	{ 245, 5 },
+	{ 235, 7 },
+	{ 225, 9 },
+	{ 220, 10 },
+	{ 210, 11 },
+	{ 200, 12 },
+	{ 190, 13 },
+	{ 180, 14 },
+	{ 170, 15 },
+	{ 160, 16 },
+	{ 150, 17 },
+	{ 140, 18 },
+	{ 130, 19 }, /* default */
+	{ 123, 20 },
+	{ 117, 21 },
+	{ 111, 22 }, 
+	{ 104, 23 },
+	{ 97, 24 },
+	{ 89, 25 },
+	{ 81, 26 },
+	{ 72, 27 },
+	{ 63, 28 },
+	{ 53, 29 },
+	{ 42, 30 },
+	{ 30, 31 }, /* Min */
+	{ 20, 31 }, /* Dimming */
+	{ 0, 32 }, /* Off */
+};
+#elif defined(CONFIG_MACH_BAFFIN_DUOS_CTC)
 struct brt_value brt_table_aat[] = {
 	 { 255,  11 },
  	 { 240,  12 },
@@ -62,30 +93,6 @@ struct brt_value brt_table_aat[] = {
  	 { 39,  30 },
  	 { 27,  32 },
          { 20,  32 },  /* Min pulse 32 */
-};
-#elif defined(CONFIG_MACH_ARUBASLIM_OPEN)
-struct brt_value brt_table_aat[] = {
-	{ 255,	2  }, /* Max */
-	{ 245,	5 },
-	{ 235,	7 },
-	{ 225,	9 },
-	{ 215,	11 },
-	{ 200,	13 },
-	{ 185,	14 },
-	{ 170,	15 },
-	{ 155,	16 },
-	{ 140,	17 }, /* default */
-	{ 125,	20 },
-	{ 110,	22 },
-	{ 95,	24 },
-	{ 80,	26 },
-	{ 70,	27 },
-	{ 60,	28 },
-	{ 50,	29 },
-	{ 40,	30 },
-	{ 30,	31 }, /* Min */
-	{ 20,	31 }, /* Dimming */
-	{ 0,	32 }, /* Off */
 };
 #elif defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL)
 struct brt_value brt_table_aat[] = {
@@ -324,7 +331,7 @@ void ktd253_set_brightness(int level)
 		}
 	} /*  BACKLIGHT is KTD model */
 	
-#if defined(CONFIG_MACH_ROY) || defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
+#if defined(CONFIG_MACH_ROY) || defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL)
 //// for debugging backlight temporalily. so later should be removed.
 	printk("[KTD253] level : %d, tune_level : %d, lcd_brightness : %d \n",level,tune_level,lcd_brightness);	
 	if(tune_level != lcd_brightness)

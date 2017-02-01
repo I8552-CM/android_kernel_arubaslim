@@ -3,7 +3,7 @@
  * Register/Interrupt access for userspace aDSP library.
  *
  * Copyright (C) 2008 Google, Inc.
- * Copyright (c) 2008-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2008-2012, The Linux Foundation. All rights reserved.
  * Author: Iliyan Malchev <ibm@android.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -34,6 +34,7 @@
 #include <linux/wait.h>
 #include <linux/wakelock.h>
 #include <linux/slab.h>
+#include <linux/workqueue.h>
 #include <mach/debug_mm.h>
 #include <linux/debugfs.h>
 
@@ -70,6 +71,10 @@ static uint32_t rpc_adsp_rtos_mtoa_prog;
 static uint32_t rpc_adsp_rtos_mtoa_vers;
 static uint32_t rpc_adsp_rtos_mtoa_vers_comp;
 static DEFINE_MUTEX(adsp_open_lock);
+
+static struct workqueue_struct *msm_adsp_probe_work_queue;
+static void adsp_probe_work(struct work_struct *work);
+static DECLARE_WORK(msm_adsp_probe_work, adsp_probe_work);
 
 /* protect interactions with the ADSP command/message queue */
 static spinlock_t adsp_cmd_lock;
@@ -715,11 +720,22 @@ static void handle_adsp_rtos_mtoa_app(struct rpc_request_hdr *req)
 	mutex_lock(&module->lock);
 	switch (event) {
 	case RPC_ADSP_RTOS_MOD_READY:
-		MM_INFO("module %s: READY\n", module->name);
-		module->state = ADSP_STATE_ENABLED;
-		wake_up(&module->state_wait);
-		adsp_set_image(module->info, image);
-		break;
+		if (module->state == ADSP_STATE_ENABLING) {
+			MM_INFO("module %s: READY\n", module->name);
+			module->state = ADSP_STATE_ENABLED;
+			wake_up(&module->state_wait);
+			adsp_set_image(module->info, image);
+			break;
+		} else {
+			MM_ERR("module %s got READY event in state[%d]\n",
+								module->name,
+								module->state);
+			rpc_send_accepted_void_reply(rpc_cb_server_client,
+						req->xid,
+						RPC_ACCEPTSTAT_GARBAGE_ARGS);
+			mutex_unlock(&module->lock);
+			return;
+		}
 	case RPC_ADSP_RTOS_MOD_DISABLE:
 		MM_INFO("module %s: DISABLED\n", module->name);
 		module->state = ADSP_STATE_DISABLED;
@@ -1089,9 +1105,9 @@ int msm_adsp_enable(struct msm_adsp_module *module)
 
 	MM_INFO("enable '%s'state[%d] id[%d]\n",
 				module->name, module->state, module->id);
-	if (!strncmp(module->name, "JPEGTASK", sizeof(module->name)))
+	if (!strncmp(module->name, "JPEGTASK", sizeof(*module->name)))
 		module_en = find_adsp_module_by_name(&adsp_info, "VIDEOTASK");
-	else if (!strncmp(module->name, "VIDEOTASK", sizeof(module->name)))
+	else if (!strncmp(module->name, "VIDEOTASK", sizeof(*module->name)))
 		module_en = find_adsp_module_by_name(&adsp_info, "JPEGTASK");
 	if (module_en) {
 		mutex_lock(&module_en->lock);
@@ -1216,28 +1232,22 @@ static int msm_adsp_probe(struct platform_device *pdev)
 {
 	unsigned count;
 	int rc, i;
-	MM_ERR("Entering in probe\n");
 
 	adsp_info.int_adsp = platform_get_irq(pdev, 0);
 	if (adsp_info.int_adsp < 0) {
 		MM_ERR("no irq resource?\n");
 		return -ENODEV;
 	}
-	MM_ERR(" adsp probe platform_get_irq returned\n");
 
 	wake_lock_init(&adsp_wake_lock, WAKE_LOCK_SUSPEND, "adsp");
 	adsp_info.init_info_ptr = kzalloc(
 		(sizeof(struct adsp_rtos_mp_mtoa_init_info_type)), GFP_KERNEL);
-	if (!adsp_info.init_info_ptr)	{
-		MM_ERR(" adsp probe failed allocating memory\n");
+	if (!adsp_info.init_info_ptr)
 		return -ENOMEM;
-	}
 
 	rc = adsp_init_info(&adsp_info);
-	if (rc)	{
-		MM_ERR(" adsp probe failed adsp_init_info\n");
+	if (rc)
 		return rc;
-	}
 	adsp_info.send_irq += (uint32_t) MSM_AD5_BASE;
 	adsp_info.read_ctrl += (uint32_t) MSM_AD5_BASE;
 	adsp_info.write_ctrl += (uint32_t) MSM_AD5_BASE;
@@ -1246,10 +1256,8 @@ static int msm_adsp_probe(struct platform_device *pdev)
 	adsp_modules = kzalloc(
 		(sizeof(struct msm_adsp_module) + sizeof(void *)) *
 		count, GFP_KERNEL);
-	if (!adsp_modules)	{
-		MM_ERR(" adsp probe failed allocating memory for adsp_modules\n");
+	if (!adsp_modules)
 		return -ENOMEM;
-	}
 
 	adsp_info.id_to_module = (void *) (adsp_modules + count);
 
@@ -1259,10 +1267,8 @@ static int msm_adsp_probe(struct platform_device *pdev)
 
 	rc = request_irq(adsp_info.int_adsp, adsp_irq_handler,
 			IRQF_TRIGGER_RISING, "adsp", 0);
-	if (rc < 0)	{
-		MM_ERR(" adsp probe request_irq\n");
+	if (rc < 0)
 		goto fail_request_irq;
-	}
 	disable_irq(adsp_info.int_adsp);
 
 	rpc_cb_server_client = msm_rpc_open();
@@ -1280,10 +1286,9 @@ static int msm_adsp_probe(struct platform_device *pdev)
 		MM_ERR("could not register callback server (%d)\n", rc);
 		goto fail_rpc_register;
 	}
-	MM_ERR(" adsp probe rpc_register_server done \n");
 
-	/* start the kernel thread to process the callbacks */
-	kthread_run(adsp_rpc_thread, NULL, "kadspd");
+	/* schedule start of kernel thread later using work queue */
+	queue_work(msm_adsp_probe_work_queue, &msm_adsp_probe_work);
 
 	for (i = 0; i < count; i++) {
 		struct msm_adsp_module *mod = adsp_modules + i;
@@ -1309,7 +1314,6 @@ static int msm_adsp_probe(struct platform_device *pdev)
 
 	msm_adsp_publish_cdevs(adsp_modules, count);
 	rmtask_init();
-	MM_ERR(" adsp probe completed successfully\n");
 
 	return 0;
 
@@ -1322,8 +1326,13 @@ fail_rpc_open:
 fail_request_irq:
 	kfree(adsp_modules);
 	kfree(adsp_info.init_info_ptr);
-	MM_ERR(" adsp probe completed with errors\n");
 	return rc;
+}
+
+static void adsp_probe_work(struct work_struct *work)
+{
+	/* start the kernel thread to process the callbacks */
+	kthread_run(adsp_rpc_thread, NULL, "kadspd");
 }
 
 #ifdef CONFIG_DEBUG_FS
@@ -1488,8 +1497,13 @@ static int __init adsp_init(void)
 	rpc_adsp_rtos_mtoa_vers_comp = 0x00030001;
 #endif
 
+	msm_adsp_probe_work_queue = create_workqueue("msm_adsp_probe");
+	if (msm_adsp_probe_work_queue == NULL)
+		return -ENOMEM;
 	msm_adsp_driver.driver.name = msm_adsp_driver_name;
+	preempt_disable();
 	rc = platform_driver_register(&msm_adsp_driver);
+	preempt_enable();
 	MM_INFO("%s -- %d\n", msm_adsp_driver_name, rc);
 	return rc;
 }

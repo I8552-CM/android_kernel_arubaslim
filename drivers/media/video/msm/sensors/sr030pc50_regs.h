@@ -1537,8 +1537,6 @@ static const u16 sr030pc50_VT_Init_Reg[] = {
 static const u16 sr030pc50_Preview[]  = {
 0x0300,
 0x1190,
-
-0xff28, //400ms
 };
 
 static const u16 sr030pc50_stop_stream[]  = {
@@ -1751,7 +1749,6 @@ static const u16 sr030pc50_Auto_fps[] = {
 };
 
 static const u16 sr030pc50_15fps[] = {
-0x0300,
 0x0171,
 0x1194,
 0x1488,
@@ -1793,7 +1790,6 @@ static const u16 sr030pc50_15fps[] = {
 };
 
 static const u16 sr030pc50_20fps[]  = {
-0x0300,
 0x0171,
 0x1194,
 0x1488,
@@ -1835,7 +1831,6 @@ static const u16 sr030pc50_20fps[]  = {
 };
 
 static const u16 sr030pc50_15fps_60Hz[]  = {
-0x0300,
 0x0171,
 0x1194,
 0x1488,

@@ -165,12 +165,8 @@ static char hx8357d_boe_video_14[] = {
  0x29,
  	0x00
 };
-#if defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
-static char hx8357d_boe_video_MADCTL[] = {
-0x36,
-   0xC0
-};
-#endif
+
+
 
 
 static struct dsi_cmd_desc hx8357_smd_cmd_prepare_panel[] = {
@@ -207,9 +203,6 @@ static struct dsi_cmd_desc hx8357_boe_cmd_prepare_panel[] = {
 	{DTYPE_GEN_LWRITE, 1, 0, 0, HX8357_CMD_SETTLE,		sizeof(hx8357d_boe_video_12), hx8357d_boe_video_12},
 	{DTYPE_GEN_LWRITE, 1, 0, 0, HX8357_SETTING_GAMMA,	sizeof(hx8357d_boe_video_13), hx8357d_boe_video_13},
 	{DTYPE_DCS_WRITE,  1, 0, 0, HX8357_HOLD_RESET, 		sizeof(hx8357d_boe_video_14), hx8357d_boe_video_14},
-#if defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
-	{DTYPE_GEN_LWRITE, 1, 0, 0, HX8357_CMD_SETTLE,		sizeof(hx8357d_boe_video_MADCTL), hx8357d_boe_video_MADCTL},
-#endif
 };
 
 
@@ -255,7 +248,7 @@ static int mipi_cmd_hx8357_hvga_pt_init(void)
 	pinfo.lcdc.underflow_clr = 0xff;	/* blue */
 	pinfo.lcdc.hsync_skew = 0;
 
-#if defined (CONFIG_MACH_ROY) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
+#ifdef CONFIG_MACH_ROY
 	pinfo.bl_max = 255;
 #else
 	pinfo.bl_max = 100;

@@ -298,11 +298,7 @@ static int snddev_icodec_open_tx(struct snddev_icodec_state *icodec)
 
 	for (i = 0; i < icodec->data->pmctl_id_sz; i++) {
 		pmic_hsed_enable(icodec->data->pmctl_id[i],
-#if defined(CONFIG_MACH_KYLE) || defined(CONFIG_MACH_ROY)
-			 PM_HSED_ENABLE_ALWAYS);
-#else
 			 PM_HSED_ENABLE_PWM_TCXO);
-#endif
 	}
 
 	/* enable MI2S TX master block */
@@ -904,11 +900,7 @@ static void debugfs_adie_loopback(u32 loop)
 		ADIE_CODEC_DIGITAL_ANALOG_READY);
 
 		MM_INFO("Enable Handset Mic bias\n");
-#if defined(CONFIG_MACH_KYLE) || defined(CONFIG_MACH_ROY)
-		pmic_hsed_enable(PM_HSED_CONTROLLER_0, PM_HSED_ENABLE_ALWAYS);
-#else
 		pmic_hsed_enable(PM_HSED_CONTROLLER_0, PM_HSED_ENABLE_PWM_TCXO);
-#endif
 		/* enable MI2S TX master block */
 		/* enable MI2S TX bit clock */
 		clk_set_rate(drv->tx_mclk,
@@ -1005,11 +997,7 @@ static void debugfs_afe_loopback(u32 loop)
 			PMAPP_VREG_S4, PMAPP_SMPS_MODE_VOTE_PWM);
 
 		MM_INFO("Enable Handset Mic bias\n");
-#if defined(CONFIG_MACH_KYLE) || defined(CONFIG_MACH_ROY)
-		pmic_hsed_enable(PM_HSED_CONTROLLER_0, PM_HSED_ENABLE_ALWAYS);
-#else
 		pmic_hsed_enable(PM_HSED_CONTROLLER_0, PM_HSED_ENABLE_PWM_TCXO);
-#endif
 
 		/* enable MI2S TX master block */
 		/* enable MI2S TX bit clock */

@@ -89,19 +89,11 @@ void sr030pc50_regs_table_init(void)
 	/*Set the current segment to kernel data segment */
 	set_fs(get_ds());
 
-#if defined (CONFIG_MACH_ARUBASLIM_OPEN)
-	fp = filp_open("/sdcard/sr030pc50_regs.h", O_RDONLY, 0);
-	if (IS_ERR(fp)) {
-		cam_err("failed to open /sdcard/sr030pc50_regs.h");
-		return PTR_ERR(fp);
-	}
-#else
 	fp = filp_open("/data/sr030pc50_regs.h", O_RDONLY, 0);
 	if (IS_ERR(fp)) {
 		cam_err("failed to open /data/sr030pc50_regs.h");
 		return PTR_ERR(fp);
 	}
-#endif
 
 	file_size = (size_t) fp->f_path.dentry->d_inode->i_size;
 	max_size = file_size;
@@ -638,27 +630,27 @@ void sr030pc50_set_preview_size(int32_t index)
 void sr030pc50_set_preview(void)
 {
 	CAM_DEBUG("cam_mode = %d\n", sr030pc50_control.cam_mode);
-/*
+
 #if 1
-		SR030PC50_WRT_LIST(sr030pc50_Preview);
-		msleep(100);
+	SR030PC50_WRT_LIST(sr030pc50_Preview);
+	msleep(100); /* wait for changing frame */
 #else
-		if (sr030pc50_control.cam_mode == MOVIE_MODE) {
-			CAM_DEBUG("Camcorder_Mode_ON\n");
+	if (sr030pc50_control.cam_mode == MOVIE_MODE) {
+		CAM_DEBUG("Camcorder_Mode_ON\n");
+		SR030PC50_WRT_LIST(sr030pc50_Preview);
+		SR030PC50_WRT_LIST(sr030pc50_20fps);
+	} else {
+		if (sr030pc50_control.vtcall_mode == 1) {
+			CAM_DEBUG("set VT mode\n");
 			SR030PC50_WRT_LIST(sr030pc50_Preview);
-			SR030PC50_WRT_LIST(sr030pc50_20fps);
-		} else {
-			if (sr030pc50_control.vtcall_mode == 1) {
-				CAM_DEBUG("set VT mode\n");
-				SR030PC50_WRT_LIST(sr030pc50_Preview);
-				SR030PC50_WRT_LIST(sr030pc50_15fps);
-			}
-			else {
-				CAM_DEBUG("set preview mode\n");
-				SR030PC50_WRT_LIST(sr030pc50_Preview);
-			}
+			SR030PC50_WRT_LIST(sr030pc50_15fps);
 		}
-#endif*/
+		else {
+			CAM_DEBUG("set preview mode\n");
+			SR030PC50_WRT_LIST(sr030pc50_Preview);
+		}
+	}
+#endif
 }
 
 void sr030pc50_set_capture(void)
@@ -762,10 +754,6 @@ int32_t sr030pc50_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	gpio_tlmm_config(GPIO_CFG(CAM_MCLK, 1, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-#endif
-#if defined(CONFIG_MACH_DELOS_CTC)
-	gpio_tlmm_config(GPIO_CFG(113, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	//set input GPIO CFG 113
 #endif
 	gpio_tlmm_config(GPIO_CFG(FRONT_CAM_STBY, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(FRONT_CAM_RESET, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
@@ -935,10 +923,6 @@ int32_t sr030pc50_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 #endif
-#if defined(CONFIG_MACH_DELOS_CTC)
-	gpio_tlmm_config(GPIO_CFG(113, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	//set input GPIO CFG 113
-#endif
 #ifdef CONFIG_LOAD_FILE
 	sr030pc50_regs_table_exit();
 #endif
@@ -1061,23 +1045,36 @@ static void sr030pc50_set_whitebalance(int wb)
 }
 
 void sr030pc50_set_frame_rate(int32_t fps)
-{
-	switch( fps ){
-	case 15 :
-	if(sr030pc50_control.cam_mode == PREVIEW_MODE){
-		SR030PC50_WRT_LIST(sr030pc50_15fps);
+{/*  block the fps setting, set FPS when initializing.
+	if(fps == 15 || fps == 20 || fps == 30) {
+		fps = 20;
 	}
+	else {
+		fps = 0;
+	}		
+		
+	CAM_DEBUG(" %d", fps);
+
+	if(fps == sr030pc50_control.settings.fps) {
+		CAM_DEBUG("fsp value is same as before: %d", fps);
+		return;
+	}	
+	
+	switch (fps) {
+	case 15:
+		SR030PC50_WRT_LIST(sr030pc50_15fps);
 		break;
-	case 20 :
+
+	case 20:
 		SR030PC50_WRT_LIST(sr030pc50_20fps);
 		break;
-	default :
+
+	default:
 		SR030PC50_WRT_LIST(sr030pc50_Auto_fps);
 		break;
-	}
+	}*/
 
 	sr030pc50_control.settings.fps = fps;
-	CAM_DEBUG("fps : %d", fps);
 }
 
 void sr030pc50_set_smart_stay(void)
@@ -1109,9 +1106,7 @@ void sensor_native_control_front(void __user *arg)
 
 	case  EXT_CAM_MOVIE_MODE:
 		CAM_DEBUG("MOVIE mode : %d\n", ctrl_info.value_1);
-		CAM_DEBUG("EXT_CAM_MOVIE_MODE : %d\n");
-		sr030pc50_control.cam_mode = ctrl_info.value_1;				
-
+		sr030pc50_control.cam_mode = ctrl_info.value_1;
 		break;
 
 	case EXT_CAM_EXIF:
@@ -1185,9 +1180,11 @@ static struct v4l2_subdev_info sr030pc50_subdev_info[] = {
 void sr030pc50_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	CAM_DEBUG("Preview_Mode\n");
+
 	if (sr030pc50_control.cam_mode == MOVIE_MODE) {
 		CAM_DEBUG("Camcorder_Mode_ON\n");
 		SR030PC50_WRT_LIST(sr030pc50_Init_Reg);
+		SR030PC50_WRT_LIST(sr030pc50_20fps);
 	} else {
 		if (sr030pc50_control.vtcall_mode == 1) {
 			CAM_DEBUG("set VT mode\n");
@@ -1195,6 +1192,7 @@ void sr030pc50_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 		} else {
 			CAM_DEBUG("set preview mode\n");
 			SR030PC50_WRT_LIST(sr030pc50_Init_Reg);
+                	SR030PC50_WRT_LIST(sr030pc50_20fps);  //set fixed fps 20 during initializing.
 		}
 	}
 }
@@ -1260,15 +1258,6 @@ static int32_t sr030pc50_sensor_setting(struct msm_sensor_ctrl_t *s_ctrl,
 			return rc;
 		}
 		CAM_DEBUG("need_configuration[0x%x]\n", s_ctrl->need_configuration);
-	if (sr030pc50_control.cam_mode == MOVIE_MODE) {
-		SR030PC50_WRT_LIST(sr030pc50_20fps);
-	} else {
-		if (sr030pc50_control.vtcall_mode == 1) {
-			CAM_DEBUG("set VT mode\n");
-		} else {
-			SR030PC50_WRT_LIST(sr030pc50_Preview);
-		}
-	}
 		while(s_ctrl->need_configuration) {
 			if(s_ctrl->need_configuration & 0x1) {
 				CAM_DEBUG("execute ctrl_id[%d], value[%d]\n", v4l2_ctrl[check_bit].ctrl_id, v4l2_ctrl[check_bit].current_value);

@@ -53,11 +53,6 @@ static char power_setting_seq8[5] = {
 	0x00, 0x00, 0x01, 0xDF
 };
 
-static char power_setting_seq_B0[2] = {
-	0xB0,
-	0x80
-};
-
 static char power_setting_seq9[3] = {
 	0xB1,
 	0xB0, 0x12
@@ -140,7 +135,6 @@ static struct spi_cmd_desc display_on_cmds[] = {
 	{sizeof(power_setting_seq6), power_setting_seq6, 0},
 	{sizeof(power_setting_seq7), power_setting_seq7, 0},
 	{sizeof(power_setting_seq8), power_setting_seq8, 0},
-  {sizeof(power_setting_seq_B0), power_setting_seq_B0, 0},
 	{sizeof(power_setting_seq9), power_setting_seq9, 0},
 	{sizeof(power_setting_seq10), power_setting_seq10, 0},
 	{sizeof(power_setting_seq11), power_setting_seq11, 0},

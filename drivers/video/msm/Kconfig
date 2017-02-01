@@ -10,10 +10,20 @@ config FB_MSM
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
+	select SYNC
+	select SW_SYNC
 	---help---
 	  Support for MSM Framebuffer.
 
 if FB_MSM
+
+config MACH_LGE_2ND_GEN_KK_WORKAROUD
+	bool "LCD errors Workaround"
+	default y
+	help
+	 Disable support for "Copy splash image to kernel memory" and KeyLED.
+	 The 2nd gen devices not have this support in bootloader.
+	 And KeyLED make screen On forever.
 
 config FB_MSM_BACKLIGHT
 	bool "Support for backlight control"
@@ -35,9 +45,16 @@ config FB_MSM_TRIPLE_BUFFER
 	bool "Support for triple frame buffer"
 	default n
 
+config CHECK_SETTING_TABLE
+	bool "Check the LCD initial setting"
+	default n
+
 config FB_MSM_MDP_HW
 	bool
 	default n
+
+config FB_MSM_MDSS_COMMON
+	bool
 
 choice
 	prompt "MDP HW version"
@@ -86,6 +103,7 @@ config FB_MSM_MDP40
 
 config FB_MSM_MDSS
 	bool "MDSS HW"
+	select FB_MSM_MDSS_COMMON
 	---help---
 	The Mobile Display Sub System (MDSS) driver supports devices which
 	contain MDSS hardware block.
@@ -100,6 +118,10 @@ config FB_MSM_MDP_NONE
 	  Say Y here if this is mdm platform.
 
 endchoice
+
+config FB_MSM_QPIC
+	bool
+	select FB_MSM_MDSS_COMMON
 
 config FB_MSM_EBI2
 	bool
@@ -125,7 +147,7 @@ config FB_MSM_LVDS
 	default n
 
 config FB_MSM_OVERLAY
-	depends on FB_MSM_MDP40 && ANDROID_PMEM
+	depends on FB_MSM_MDP40
 	bool "MDP4 overlay support"
 	default n
 
@@ -206,6 +228,10 @@ config FB_MSM_MIPI_DSI_NOVATEK
         bool
         select FB_MSM_MIPI_DSI
         default n
+
+config FB_MSM_MIPI_DSI_NT35502
+	bool
+	select FB_MSM_MIPI_DSI
 
 config FB_MSM_MIPI_DSI_NT35510
 	bool
@@ -389,6 +415,11 @@ config FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 	select FB_MSM_MIPI_DSI_NT35510
 	default n
 
+config FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT
+	bool
+	select FB_MSM_MIPI_DSI_NT35502
+	default n
+
 config FB_MSM_MIPI_HX8369B_WVGA_PT
 	bool
 	select FB_MSM_MIPI_DSI_HX8369B
@@ -468,7 +499,7 @@ config FB_MSM_WRITEBACK_MSM_PANEL
         bool "MDP overlay write back panel enable"
 	---help---
 	  Support for MDP4 OVERLAY write back mode
-choice
+
 	prompt "LCD Panel"
 	default FB_MSM_MDDI_AUTO_DETECT
 
@@ -586,6 +617,7 @@ config FB_MSM_MIPI_PANEL_DETECT
 	select FB_MSM_MIPI_NOVATEK_CMD_QHD_PT
 	select FB_MSM_MIPI_NT35510_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
+	select FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT
 	select FB_MSM_MIPI_HX8369B_WVGA_PT
 	select FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT
 	select FB_MSM_MIPI_ORISE_VIDEO_720P_PT
@@ -744,6 +776,10 @@ config FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL
 	bool "MIPI NT35510 Command WVGA PT Panel"
 	select FB_MSM_MIPI_NT35510_CMD_WVGA_PT
 
+config FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL
+	bool "MIPI NT35502 Video WVGA PT Panel"
+	select FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT
+
 config FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	bool "MIPI HX8369B Video WVGA PT Panel"
 	select FB_MSM_MIPI_HX8369B_WVGA_PT
@@ -784,7 +820,6 @@ config FB_MSM_PANEL_NONE
 	bool "NONE"
 	---help---
 	  This will disable LCD panel
-endchoice
 
 choice
 	prompt "Secondary LCD Panel"
@@ -869,14 +904,6 @@ config FB_MSM_HDMI_MSM_PANEL_DVI_SUPPORT
 	default n
 	---help---
 	  Support for DVI mode for MSM HDMI 1080p Panel
-
-config FB_MSM_HDMI_MSM_PANEL_HDCP_SUPPORT
-	depends on FB_MSM_HDMI_MSM_PANEL
-	bool "Use HDCP mode"
-	default y
-	---help---
-	  Support for HDCP mode for MSM HDMI 1080p Panel
-	  Choose to enable HDCP
 
 config FB_MSM_HDMI_MSM_PANEL_CEC_SUPPORT
 	depends on FB_MSM_HDMI_MSM_PANEL
@@ -1001,6 +1028,20 @@ config BACKLIGHT_KTD253
 config FB_MSM_MIPI_SOLUTION_GPS_NOISE
 	bool "FB_MSM_MIPI_SOLUTION_GPS_NOISE"
 	default n
+	
+config MACH_DELOS_OPEN_CHN
+        depends on ARCH_MSM8625
+        default n
+        bool "MSM8x25 DELOS OPEN CHN"
+        help
+          Support for the Qualcomm DELOS OPEN CHN
+
+config MACH_DELOS_DUOS_CTC
+        depends on ARCH_MSM8625
+        default n
+        bool "MSM8x25 DELOS DUOS CTC"
+        help
+          Support for the Qualcomm DELOS DUOS CTC
 
 config FB_MSM_EBI2_EPSON_S1D_QVGA_PANEL
 	bool "EBI2 Epson QVGA Panel"
@@ -1016,7 +1057,31 @@ config FB_MSM_EBI2_PANEL_DETECT
 	---help---
 	  Support for EBI2 panel auto detect
 
+config FB_MSM_QPIC_ILI_QVGA_PANEL
+	bool "Qpic MIPI ILI QVGA Panel"
+	select FB_MSM_QPIC
+	---help---
+	  Support for MIPI ILI QVGA (240x320) panel
+	  ILI TECHNOLOGY 9341
+	  with on-chip full display RAM
+	  use parallel interface
+
+config FB_MSM_QPIC_PANEL_DETECT
+	bool "Qpic Panel Detect"
+	select FB_MSM_QPIC_ILI_QVGA_PANEL
+	---help---
+	  Support for Qpic panel auto detect
+
+config VARIANT_SECOND_BOOTIMAGE	  
+	bool "CONFIG_VARIANT_SECOND_BOOTIMAGE"
+	default n
+	help
+	  support for variant second bootimage
+
 if FB_MSM_MDSS
 	source "drivers/video/msm/mdss/Kconfig"
 endif
+config FB_MSM_ALIGN_BUFFER
+	bool "Enable a buffer alignment hack (for recovery)."
+	default y
 endif

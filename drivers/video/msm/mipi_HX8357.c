@@ -305,8 +305,7 @@ static struct dsi_cmd_desc hx8357_mdnie_negative_cmds[] = {
 
 #endif
 
-int lcd_reset;
-EXPORT_SYMBOL(lcd_reset);
+static int lcd_reset;
 
 #define VREG_ENABLE	TRUE
 #define VREG_DISABLE	FALSE
@@ -374,9 +373,8 @@ static void hx8357_disp_powerup(void)
 
 		hx8357_vreg_config(VREG_ENABLE); 
 		msleep(20);
-#ifndef CONFIG_MACH_HENNESSY_DUOS_CTC
+
 		return; // for first booting
-#endif
 	}
 	
 	if( read_recovery > 0 )
@@ -1087,11 +1085,8 @@ static int ch_used[3];
 static int mipi_hx8357_lcd_init(void)
 {
 	DPRINT("start %s\n", __func__);
-#if defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
-	lcd_reset=22;
-#else
+
 	lcd_reset = 23;
-#endif
 
 	mipi_dsi_buf_alloc(&hx8357_tx_buf, DSI_BUF_SIZE);
 	mipi_dsi_buf_alloc(&hx8357_rx_buf, DSI_BUF_SIZE);

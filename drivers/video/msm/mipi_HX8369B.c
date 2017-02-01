@@ -99,6 +99,10 @@ static struct dsi_cmd_desc hx8369b_sleep_in_cmds[] = {
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(enter_sleep), enter_sleep}
 };
 
+static struct dsi_cmd_desc hx8369b_display_off_cmds[] = {
+	{DTYPE_DCS_WRITE, 1, 0, 0, 20, sizeof(display_off), display_off},
+	{DTYPE_DCS_WRITE, 1, 0, 0, 180, sizeof(enter_sleep), enter_sleep},
+};
 
 // 12.11.17 kiyong17.kim Apply the LCD Init code
 #if defined(CONFIG_MACH_BAFFIN_DUOS_CTC)
@@ -387,17 +391,10 @@ static char hx8369b_boe4[] = {
 	0x01, 0x00, 0x00, 0x00, 0x0F, 0x00, 0x0F, 0xFF, 0xFF, 0x0F, 0x00, 0x0F, 0xFF, 0xFF, 0x00, 
 	0x80, 0x5A
 };
-#if defined(CONFIG_MACH_ARUBASLIM_OPEN)
-static char hx8369b_boe5[] = {
-	0xB1,
-	0x0C, 0x83, 0x77, 0x00, 0x0F, 0x0F, 0x18, 0x18, 0x0C, 0x12
-};
-#else
 static char hx8369b_boe5[] = {
 	0xB1,
 	0x0C, 0x83, 0x77, 0x00, 0x0F, 0x0F, 0x18, 0x18, 0x0C, 0x02
 };
-#endif
 static char hx8369b_boe6[] = {
 	0xB2,
 	0x00, 0x70
@@ -492,6 +489,10 @@ static char hx8369b_55BC90_video5[] = {
 	0xB1,
 	0x0B, 0x83, 0x77, 0x00, 0x0F, 0x0F, 0x17, 0x17, 0x0C, 0x1A
 };
+static char hx8369b_blackscreen[] = {
+	0xB2,
+	0x00, 0x70
+};
 static char hx8369b_55BC90_video6[] = {
 	0xB3,
 	0x83, 0x00, 0x31, 0x03
@@ -536,11 +537,12 @@ static char hx8369b_55BC90_video15[] = {
 };
 
 static struct dsi_cmd_desc hx8369b_video_display_init_55BC90_cmds[] = {
-	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video1), hx8369b_55BC90_video1},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 10, sizeof(hx8369b_55BC90_video1), hx8369b_55BC90_video1},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video2), hx8369b_55BC90_video2},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video3), hx8369b_55BC90_video3},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video4), hx8369b_55BC90_video4},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video5), hx8369b_55BC90_video5},
+	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_blackscreen), hx8369b_blackscreen},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video6), hx8369b_55BC90_video6},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video7), hx8369b_55BC90_video7},
 	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video8), hx8369b_55BC90_video8},
@@ -726,6 +728,66 @@ static struct dsi_cmd_desc hx8369b_video_display_mDNIe_scenario_cmds[][1] = {
 };
 #endif
 
+#if defined(CONFIG_CHECK_SETTING_TABLE)
+static char check_init_table[][16] = {
+	{0x0, 0x0, 0x0, 0x1c, 0x3, 0x0, 0x16, 0xff, 0x83, 0x69, 0xa3, 0xa7, 0x5, 0x67, 0x9b, 0x46},
+	{0x0, 0x16, 0xca, 0xb0, 0xa, 0x0, 0x10, 0x28, 0x2, 0x21, 0x21, 0x9a, 0x1a, 0x8f, 0x7e, 0x1a},
+	{0xa, 0x0, 0x87, 0xf, 0xa, 0x0, 0x10, 0x28, 0x2, 0x21, 0x21, 0x9a, 0x1a, 0x8f, 0x7e, 0x1a},
+	{0x0, 0xf, 0x0, 0xf, 0xff, 0xff, 0xf, 0x0, 0xf, 0xff, 0xff, 0x0, 0x85, 0x5a, 0x38, 0x5},
+	{0x1c, 0xa, 0x0, 0x29, 0xb, 0x83, 0x77, 0x0, 0xf, 0xf, 0x17, 0x17, 0xc, 0x1a, 0x7e, 0x5b},
+	{0x7e, 0x5b, 0x1c, 0x4, 0x0, 0x33, 0x83, 0x0, 0x31, 0x3, 0x63, 0x96, 0xc, 0x1a, 0x7e, 0x5b},
+	{0xa, 0x0, 0x87, 0xf, 0x0, 0x33, 0x83, 0x0, 0x31, 0x3, 0x63, 0x96, 0xc, 0x1a, 0x7e, 0x5b},
+	{0xa, 0x6d, 0x64, 0xb7, 0x0, 0x33, 0x83, 0x0, 0x31, 0x3, 0x63, 0x96, 0xc, 0x1a, 0x7e, 0x5b},
+	{0xa, 0xe, 0xf9, 0xe6, 0x0, 0x33, 0x83, 0x0, 0x31, 0x3, 0x63, 0x96, 0xc, 0x1a, 0x7e, 0x5b},
+	{0xa, 0x0, 0x87, 0xf, 0x0, 0x33, 0x83, 0x0, 0x31, 0x3, 0x63, 0x96, 0xc, 0x1a, 0x7e, 0x5b},
+	{0x87, 0xf, 0x1c, 0x4, 0x0, 0x33, 0x41, 0xff, 0x7a, 0xff, 0x12, 0xcd, 0xc, 0x1a, 0x7e, 0x5b},
+	{0xa, 0x72, 0x12, 0x5f, 0x0, 0x33, 0x41, 0xff, 0x7a, 0xff, 0x12, 0xcd, 0xc, 0x1a, 0x7e, 0x5b},
+	{0x12, 0x5f, 0x1c, 0x4, 0x0, 0x33, 0x7, 0xf, 0x7, 0xf, 0x38, 0xab, 0xc, 0x1a, 0x7e, 0x5b},
+	{0x7, 0xf, 0x38, 0xab, 0x1c, 0x6, 0x0, 0x2f, 0x73, 0x50, 0x0, 0x34, 0xc4, 0x9, 0xaa, 0x61},
+	{0x2d, 0x30, 0x1d, 0x3b, 0x8, 0xd, 0xf, 0x13, 0x15, 0x13, 0x14, 0xf, 0x16, 0x0, 0xb7, 0x9b},
+	{0xa, 0x5a, 0x58, 0xf2, 0x8, 0xd, 0xf, 0x13, 0x15, 0x13, 0x14, 0xf, 0x16, 0x0, 0xb7, 0x9b},
+};
+static char check_mDNIe_negative[] = {
+	0x1F, 0x67, 0x1F, 0xC6, 0x04, 0xD3, 0x1f, 0x67, 0x1F, 0xC6, 0x1E, 0xD3, 0x05, 0x67, 0x1B, 0x0C
+};
+static char check_mDNIe_UI[] = {
+	0x1F, 0x67, 0x1F, 0xC6, 0x04, 0xD3, 0x1F, 0x67, 0x1F, 0xC6, 0x1E, 0xD3, 0x05, 0x67, 0x9B, 0x46
+};
+static char read_mDNIe_reg[] = {
+	0xE6, 0x00
+};
+
+static struct dsi_cmd_desc hx8369b_video_set_EXTC_cmds[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_boe1), hx8369b_boe1},
+};
+static struct dsi_cmd_desc hx8369b_video_read_display_init_55BC90_cmds[] = {
+	{DTYPE_DCS_READ, 1, 0, 0, 10, sizeof(hx8369b_55BC90_video1), hx8369b_55BC90_video1},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video2), hx8369b_55BC90_video2},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video3), hx8369b_55BC90_video3},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video4), hx8369b_55BC90_video4},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video5), hx8369b_55BC90_video5},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video6), hx8369b_55BC90_video6},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video7), hx8369b_55BC90_video7},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video8), hx8369b_55BC90_video8},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video9), hx8369b_55BC90_video9},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video10), hx8369b_55BC90_video10},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video11), hx8369b_55BC90_video11},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video12), hx8369b_55BC90_video12},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video13), hx8369b_55BC90_video13},
+	{DTYPE_DCS_READ, 1, 0, 0, 120, sizeof(hx8369b_55BC90_video14), hx8369b_55BC90_video14},
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(hx8369b_55BC90_video15), hx8369b_55BC90_video15},
+};
+static struct dsi_cmd_desc hx8369b_video_read_mDNIe_cmds[] = {
+	{DTYPE_DCS_READ, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(read_mDNIe_reg), read_mDNIe_reg},
+};
+static struct dsi_cmd_desc hx8369b_video_mDNIe_negative_set_cmds[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(mDNIe_NEGATIVE_MODE), mDNIe_NEGATIVE_MODE},
+};
+static struct dsi_cmd_desc hx8369b_video_mDNIe_UI_set_cmds[] = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, HX8369B_CMD_SETTLE, sizeof(mDNIe_UI_MODE), mDNIe_UI_MODE},
+};
+#endif
+
 /*
 static void hx8369b_disp_powerup(void)
 {
@@ -743,9 +805,17 @@ static void hx8369b_disp_powerdown(void)
 #define CHECK_TEMPERATURE	0
 int get_lcd_temperature=0;
 
+#if CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL
+char lcd_id[6] = {0};
+EXPORT_SYMBOL(lcd_id);
+#endif
 static int __init hx8369b_lcd_read_id(char *param)
 {
 	int index, digit, negative;
+#if CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL
+	pr_info("[LCD] %s, %d. LCD ID %c\n", __func__, __LINE__, param[2]);
+	memcpy(lcd_id, param, sizeof(lcd_id));
+#endif
 	if(param[0]=='5'&&param[1]=='5'&&param[2]=='4'&&param[3]=='8'&&param[4]=='9'&&param[5]=='0') {
 		hx8369b_read_id=HX8369B_AUO_554890;
 		DPRINT("AUO1\n");
@@ -1532,6 +1602,49 @@ static int mipi_hx8369b_lcd_on(struct platform_device *pdev)
 	}
 #endif
 
+#if defined(CONFIG_CHECK_SETTING_TABLE)
+	{
+		int retry;
+		int i;
+		
+		mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_video_set_EXTC_cmds, ARRAY_SIZE(hx8369b_video_set_EXTC_cmds));
+
+		for(i = 0 ; i < ARRAY_SIZE(hx8369b_video_display_init_55BC90_cmds) ; i++) {
+			retry = 3;
+			mipi_dsi_cmds_rx(mfd, &hx8369b_tx_buf, &hx8369b_rx_buf, &hx8369b_video_read_display_init_55BC90_cmds[i], hx8369b_video_read_display_init_55BC90_cmds[i].dlen-1);
+
+			while(memcmp(check_init_table[i], hx8369b_rx_buf.data, 16) && retry>0) {
+				printk("[LCD] setting check error - table[%d]\n", i);
+				mipi_dsi_cmds_tx(&hx8369b_tx_buf, &hx8369b_video_display_init_55BC90_cmds[i], 1);
+				msleep(5);
+				mipi_dsi_cmds_rx(mfd, &hx8369b_tx_buf, &hx8369b_rx_buf, &hx8369b_video_read_display_init_55BC90_cmds[i], hx8369b_video_read_display_init_55BC90_cmds[i].dlen-1);
+				retry--;
+			}
+		}
+
+		mipi_dsi_cmds_rx(mfd, &hx8369b_tx_buf, &hx8369b_rx_buf, hx8369b_video_read_mDNIe_cmds, sizeof(mDNIe_UI_MODE)-1);
+
+		retry = 3;
+		if(mDNIe_cfg.negative) {
+			while(memcmp(check_mDNIe_negative, hx8369b_rx_buf.data, 16) && retry>0) {
+				printk("[LCD] setting check error - negative\n");
+				mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_video_mDNIe_negative_set_cmds, ARRAY_SIZE(hx8369b_video_mDNIe_negative_set_cmds));
+				msleep(5);
+				mipi_dsi_cmds_rx(mfd, &hx8369b_tx_buf, &hx8369b_rx_buf, hx8369b_video_read_mDNIe_cmds, sizeof(mDNIe_UI_MODE)-1);
+				retry--;
+			}
+		}else {
+			while(memcmp(check_mDNIe_UI, hx8369b_rx_buf.data, 16) && retry>0) {
+				printk("[LCD] setting check error - UI\n");
+				mipi_dsi_cmds_tx(&hx8369b_tx_buf, mDNIe_UI_MODE, ARRAY_SIZE(mDNIe_UI_MODE));
+				msleep(5);
+				mipi_dsi_cmds_rx(mfd, &hx8369b_tx_buf, &hx8369b_rx_buf, hx8369b_video_read_mDNIe_cmds, sizeof(mDNIe_UI_MODE)-1);
+				retry--;
+			}
+		}
+	}
+#endif
+
 	if(hx8369b_read_id==HX8369B_AUO_554990) {
 		ret = mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_video_display_on_auo2_cmds, ARRAY_SIZE(hx8369b_video_display_on_auo2_cmds));
 		if(ret==0)
@@ -1595,16 +1708,22 @@ static int mipi_hx8369b_lcd_off(struct platform_device *pdev)
 #endif
 	
 	is_lcd_on = 0;
-	
-	ret = mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_disp_off_cmds,
-			ARRAY_SIZE(hx8369b_disp_off_cmds));
-	if(ret==0)
-		goto MIPI_ERROR;	
 
-	ret = mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_sleep_in_cmds,
-			ARRAY_SIZE(hx8369b_sleep_in_cmds));
-	if(ret==0)
-		goto MIPI_ERROR;
+	if(hx8369b_read_id==HX8369B_BOE_55BC90) {
+		ret = mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_display_off_cmds, ARRAY_SIZE(hx8369b_display_off_cmds));
+		if(ret==0)
+			goto MIPI_ERROR;	
+	} else {
+		ret = mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_disp_off_cmds,
+				ARRAY_SIZE(hx8369b_disp_off_cmds));
+		if(ret==0)
+			goto MIPI_ERROR;	
+
+		ret = mipi_dsi_cmds_tx(&hx8369b_tx_buf, hx8369b_sleep_in_cmds,
+				ARRAY_SIZE(hx8369b_sleep_in_cmds));
+		if(ret==0)
+			goto MIPI_ERROR;
+	}
 	
 #ifdef CONFIG_PANEL_ESD_DETECT
 	esd_det_irq_disable();

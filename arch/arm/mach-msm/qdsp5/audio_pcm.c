@@ -1,7 +1,7 @@
 
 /* audio_pcm.c - pcm audio decoder driver
  *
- * Copyright (c) 2009-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
  *
  * Based on the mp3 decoder driver in arch/arm/mach-msm/qdsp5/audio_mp3.c
  *
@@ -38,7 +38,7 @@
 #include <linux/delay.h>
 #include <linux/earlysuspend.h>
 #include <linux/list.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/slab.h>
 #include <linux/msm_audio.h>
 
@@ -826,7 +826,7 @@ static int audpcm_ion_add(struct audio *audio,
 		pr_err("%s: could not get flags for the handle\n", __func__);
 		goto flag_error;
 	}
-	kvaddr = (unsigned long)ion_map_kernel(audio->client, handle, ionflag);
+	kvaddr = (unsigned long)ion_map_kernel(audio->client, handle);
 	if (IS_ERR_OR_NULL((void *)kvaddr)) {
 		pr_err("%s: could not get virtual address\n", __func__);
 		goto map_error;
@@ -1579,7 +1579,7 @@ static int audio_open(struct inode *inode, struct file *file)
 		MM_DBG("memsz = %d\n", mem_sz);
 
 		handle = ion_alloc(client, mem_sz, SZ_4K,
-			ION_HEAP(ION_AUDIO_HEAP_ID));
+			ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 		if (IS_ERR_OR_NULL(handle)) {
 			MM_ERR("Unable to create allocate O/P buffers\n");
 			rc = -ENOMEM;
@@ -1605,7 +1605,7 @@ static int audio_open(struct inode *inode, struct file *file)
 			goto output_buff_get_flags_error;
 		}
 
-		audio->map_v_write = ion_map_kernel(client, handle, ionflag);
+		audio->map_v_write = ion_map_kernel(client, handle);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;

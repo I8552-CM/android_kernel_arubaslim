@@ -37,26 +37,26 @@ static int lcd_brightness = -1;
 #if defined(CONFIG_MACH_NEVIS3G)
 struct brt_value brt_table_aat[] = {
   { 255, 1 }, /* Max */
-	{ 243, 3 },
-	{ 231, 5 },
-	{ 219, 7 },
-	{ 207, 9 },
-	{ 195, 11 },
-	{ 183, 12 },
-	{ 171, 13 },
-	{ 159, 14 },
-	{ 145, 15 },
-	{ 130, 16 },/* default */
-	{ 119, 17 },
-	{ 108, 18 },
-	{ 96, 21 },
-	{ 85, 24 },
-	{ 73, 26 },
-	{ 60, 28 },
-	{ 45, 29 },
-	{ 30, 32 }, /* Min */
-	{ 20, 32 }, /* Dimming */
-	{ 0, 32 }, /* Off */
+  { 243, 4 },
+  { 231, 6 },
+  { 219, 7 },
+  { 207, 9 },
+  { 195, 11 },
+  { 183, 12 },
+  { 171, 13 },
+  { 159, 15 },
+  { 145, 16 }, 
+  { 130, 17 },/* default */
+  { 119, 18 },
+  { 108, 21 },
+  { 96,  22 },
+  { 85,  24 },
+  { 73,  26 },
+  { 60,  28 },
+  { 45,  29 },
+  { 30,  32 }, /* Min */
+  { 20,  32 }, /* Dimming */
+  { 0,   32 }, /* Off */
 };
 #else
 struct brt_value brt_table_aat[] = {
@@ -158,7 +158,6 @@ void ktd253_set_brightness(int level)
 		} else {
 			if (unlikely(lcd_brightness < 0)) {
 				int val = gpio_get_value(GPIO_BL_CTRL);
-				lcd_brightness = 0;
 				if (val) {
 					lcd_brightness = 0;
 				gpio_set_value(GPIO_BL_CTRL, 0);
@@ -169,7 +168,7 @@ void ktd253_set_brightness(int level)
 			if (!lcd_brightness) {
 				gpio_set_value(GPIO_BL_CTRL, 1);
 				udelay(3);
-				lcd_brightness = 1;  //make 32 levels
+				lcd_brightness = MAX_BRIGHTNESS_IN_BLU;
 			}
 
 			pulse = (tune_level - lcd_brightness + MAX_BRIGHTNESS_IN_BLU)

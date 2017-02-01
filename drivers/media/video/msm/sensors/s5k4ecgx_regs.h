@@ -3629,6 +3629,8 @@ const unsigned int s5k4ecgx_ISO_Auto_EVT1[] = {
 	0x0F1207D0,	
 	0x0F121388,	
 
+	0x002A0230,
+	0x0F120000,
 
 	0x002A0F2A,	
 	0x0F120000,	
@@ -3667,7 +3669,7 @@ const unsigned int s5k4ecgx_ISO_50_EVT1[] = {
 
 	0x002A04D0,
 	0x0F120001,	
-	0x0F1201A0,	
+	0x0F120100,	
 	0x0F120001,	
 	0x002A06C2,
 	0x0F120100,	
@@ -3684,6 +3686,8 @@ const unsigned int s5k4ecgx_ISO_100_EVT1[] = {
 	0x0F1207D0,
 	0x0F121388,
 
+	0x002A0230,
+	0x0F120000,
 	
              
              
@@ -3711,6 +3715,8 @@ const unsigned int s5k4ecgx_ISO_200_EVT1[] = {
 	0x0F1208D0,
 	0x0F121388,
 
+	0x002A0230,
+	0x0F120000,
 	
              
              
@@ -3721,7 +3727,7 @@ const unsigned int s5k4ecgx_ISO_200_EVT1[] = {
 
 	0x002A04D0,
 	0x0F120001,
-	0x0F120320,
+	0x0F120340,
 	0x0F120001,
 	0x002A06C2,
 	0x0F120100,
@@ -3739,6 +3745,8 @@ const unsigned int s5k4ecgx_ISO_400_EVT1[] = {
 	0x0F1210D0,
 	0x0F121388,
 
+	0x002A0230,
+	0x0F12FFFA,
 	
              
              
@@ -3749,7 +3757,7 @@ const unsigned int s5k4ecgx_ISO_400_EVT1[] = {
 	
 	0x002A04D0,
 	0x0F120001,
-	0x0F120640,
+	0x0F120710,
 	0x0F120001,
 	0x002A06C2,
 	0x0F120100,

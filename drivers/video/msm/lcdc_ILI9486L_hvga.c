@@ -45,15 +45,6 @@ static DEFINE_MUTEX(spi_mutex);
 #define RDID2			0xDB
 #define RDID3			0xDC
 
-#define ESD_RECOVERY
-#ifdef ESD_RECOVERY
-static unsigned int lcd_det_irq;
-static struct delayed_work lcd_reset_work;
-static boolean irq_disabled = FALSE;
-static boolean wa_first_irq = FALSE;
-#endif
-
-
 static void read_ldi_register(u8 addr, u8 *buf, int count)
 {
 	long i;
@@ -291,15 +282,6 @@ static int lcdc_ILI9486L_panel_on(struct platform_device *pdev)
 	
 	printk("start %s\n", __func__);
 
-#ifdef ESD_RECOVERY
-	printk("start ESD_RECOVERY\n");
-
-		if (irq_disabled) {
-			enable_irq(lcd_det_irq);
-			irq_disabled = FALSE;
-		}
-#endif
-
 	mfd = platform_get_drvdata(pdev);
 	if (!mfd)
 		return -ENODEV;
@@ -319,8 +301,8 @@ static int lcdc_ILI9486L_panel_on(struct platform_device *pdev)
 		//crash booting logo
 		if(first_boot)
 		{	
+			msleep(1000);
 			first_boot = 0;
-			return 0;
 		}
 
 		backlight_ic_set_brightness(mfd->bl_level);
@@ -334,10 +316,6 @@ static int lcdc_ILI9486L_panel_off(struct platform_device *pdev)
 {
 	printk("start %s\n", __func__);
 	if (disp_state.disp_powered_up && disp_state.display_on) {
-#ifdef ESD_RECOVERY
-  		disable_irq_nosync(lcd_det_irq);
-  		irq_disabled = TRUE;
-#endif
 		lcdc_ili9486l_pdata->panel_config_gpio(0);
 		disp_state.display_on = FALSE;
 		disp_state.disp_initialized = FALSE;
@@ -347,54 +325,6 @@ static int lcdc_ILI9486L_panel_off(struct platform_device *pdev)
 	}
 	return 0;
 }
-
-#ifdef ESD_RECOVERY
-static irqreturn_t trebon_disp_breakdown_det(int irq, void *handle)
-{
-	if(disp_state.disp_initialized)
-		schedule_delayed_work(&lcd_reset_work, 0);
-
-	return IRQ_HANDLED;
-}
-
-static void lcdc_dsip_reset_work(struct work_struct *work_ptr)
-{
-	if (!wa_first_irq) {
-		printk("skip lcd reset\n");
-		wa_first_irq = TRUE;
-		return;
-	}
-
-	printk("lcd reset\n");
-
-	disable_irq_nosync(lcd_det_irq);
-//LCD OFF
-	lcdc_ili9486l_pdata->panel_config_gpio(0);
-	disp_state.display_on = FALSE;
-	disp_state.disp_initialized = FALSE;
-	spi_cmds_tx(display_off_cmds, ARRAY_SIZE(display_off_cmds));
-	disp_state.disp_powered_up = FALSE;
-	printk("lcd off\n");
-
-
-// LCD ON
-	ili9486l_disp_powerup();
-        msleep(1000);
-
-	lcdc_ili9486l_pdata->panel_config_gpio(1);		
-	ili9486l_disp_on();
-	disp_state.disp_initialized = TRUE;
-	printk("lcd on\n");
-
-	enable_irq(lcd_det_irq);
-
-        disp_state.disp_initialized = TRUE;
-
-	wa_first_irq = FALSE;
-
-}//LCD DETECT Fix  
-#endif
-
 
 static void lcdc_ILI9486L_set_backlight(struct msm_fb_data_type *mfd)
 {
@@ -446,12 +376,10 @@ static DEVICE_ATTR(lcd_type, S_IRUGO, trebon_lcdtype_show, NULL);
 static int __devinit ili9486l_disp_probe(struct platform_device *pdev)
 {
 	struct lcd_device *lcd_device;
-        int ret;
 
 	printk("[%s] id=%d\n", __func__, pdev->id);
 	if (pdev->id == 0) {
-		
-		int i;
+		int ret;
 		
 		disp_state.disp_initialized = FALSE;
 		disp_state.disp_powered_up = FALSE;
@@ -484,39 +412,10 @@ static int __devinit ili9486l_disp_probe(struct platform_device *pdev)
 //			printk("sysfs create fail - %s\n", dev_attr_lcd_type.attr.name);
 //		}
 
-
-#ifdef ESD_RECOVERY
-		for (i = 0; i < pdev->num_resources; i++) {
-			if (!strncmp(pdev->resource[i].name,"lcd_breakdown_det", 17)) {
-				lcd_det_irq = pdev->resource[i].start;
-				if (!lcd_det_irq) {
-					printk(KERN_ERR "LCD_DETECT_IRQ is NULL!\n");
-						}
-					}
-				}
-
-		printk("lcd_det_irq = %d\n", lcd_det_irq);
-#endif
-
-
 		return 0;
 	}
 
 	msm_fb_add_device(pdev);
-
-
-#ifdef ESD_RECOVERY
-	INIT_DELAYED_WORK(&lcd_reset_work, lcdc_dsip_reset_work);
-
-	ret = request_irq(lcd_det_irq, trebon_disp_breakdown_det, IRQF_TRIGGER_FALLING, "lcd_esd_det", NULL);
-	if (ret) {
-		pr_err("Request_irq failed for TLMM_MSM_SUMMARY_IRQ - %d\n",ret);
-		return ret;
-	}
-
-	printk("lRequest_irq successed\n");
-#endif
-
 	return 0;
 }
 

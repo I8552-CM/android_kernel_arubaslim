@@ -3,7 +3,7 @@
  * interface to "snd" service on the baseband cpu
  * This code also borrows from snd.c, which is
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009, 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, 2012 The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -57,9 +57,6 @@ static struct snd_curr_dev_info curr_dev;
 #define RPC_SND_CB_PROG	0x31000002
 
 #define RPC_SND_VERS	0x00030003
-
-/* Add mute function to remove noise on dualstanby project - soon9.lee */
-#define SND_CAD_SET_MUTE_PROC 100
 
 #define SND_CAD_SET_DEVICE_PROC 40
 #define SND_CAD_SET_VOLUME_PROC 39
@@ -200,18 +197,9 @@ static int rtc_debugfs_create_entry()
 }
 #endif
 
-#if defined(CONFIG_SAMSUNG_ALLSOUND_MUTE)
-#define SND_MUTE_RxMUTED 3
-#define SND_MUTE_RxUNMUTED 4
-#endif
-
 static inline int check_mute(int mute)
 {
 	return (mute == SND_MUTE_MUTED ||
-#if defined(CONFIG_SAMSUNG_ALLSOUND_MUTE)
-		(mute == SND_MUTE_RxMUTED) ||
-		(mute == SND_MUTE_RxUNMUTED) ||
-#endif
 		mute == SND_MUTE_UNMUTED) ? 0 : -EINVAL;
 }
 
@@ -297,18 +285,13 @@ static long snd_cad_ioctl(struct file *file, unsigned int cmd,
 		vmsg.args.device.rx_device = cpu_to_be32(dev.device.rx_device);
 		vmsg.args.device.tx_device = cpu_to_be32(dev.device.tx_device);
 		vmsg.args.method = cpu_to_be32(vol.method);
-#if !defined(CONFIG_MACH_ARUBA_OPEN) && !defined(CONFIG_MACH_ARUBASLIM_OPEN) && !defined(CONFIG_MACH_ARUBA_DUOS_CTC)  \
-      && !defined(CONFIG_MACH_KYLEPLUS_CTC) && !defined(CONFIG_MACH_INFINITE_DUOS_CTC) \
-      && !defined(CONFIG_MACH_KYLEPLUS_OPEN) && !defined(CONFIG_MACH_BAFFIN_DUOS_CTC) \
-      && !defined(CONFIG_MACH_DELOS_DUOS_CTC) && !defined(CONFIG_MACH_NEVIS3G)\
-      && !defined(CONFIG_MACH_DELOS_OPEN) && !defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
 		if (vol.method != SND_METHOD_VOICE &&
 				vol.method != SND_METHOD_MIDI) {
 			MM_ERR("set volume: invalid method %d\n", vol.method);
 			rc = -EINVAL;
 			break;
 		}
-#endif
+
 		vmsg.args.volume = cpu_to_be32(vol.volume);
 		vmsg.args.cb_func = -1;
 		vmsg.args.client_data = 0;
@@ -332,29 +315,6 @@ static long snd_cad_ioctl(struct file *file, unsigned int cmd,
 
 	case SND_GET_ENDPOINT:
 		rc = get_endpoint(snd, arg);
-		break;
-
-	case CAD_SET_MUTE: 
-		if (copy_from_user(&dev, (void __user *) arg, sizeof(dev))) {
-			MM_ERR("set device: invalid pointer\n");
-			rc = -EFAULT;
-			break;
-		}
-
-		dmsg.args.device.rx_device = cpu_to_be32(dev.device.rx_device);
-		dmsg.args.device.tx_device = cpu_to_be32(dev.device.tx_device);
-		dmsg.args.device.pathtype = cpu_to_be32(dev.device.pathtype);
-		dmsg.args.ear_mute = cpu_to_be32(dev.ear_mute);
-		dmsg.args.mic_mute = cpu_to_be32(dev.mic_mute);
-		dmsg.args.cb_func = -1;
-		dmsg.args.client_data = 0;
-
-		MM_ERR("snd_cad_set_mute %d %d %d %d\n", dev.device.rx_device,
-			dev.device.tx_device, dev.ear_mute, dev.mic_mute);
-		
-		rc = msm_rpc_call(snd->ept,
-			SND_CAD_SET_MUTE_PROC,
-			&dmsg, sizeof(dmsg), 5 * HZ);
 		break;
 
 	default:

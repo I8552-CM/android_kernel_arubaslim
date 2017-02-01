@@ -40,6 +40,9 @@
 extern int read_recovery;
 #endif
 
+/* check pll unlock status */
+#define PLL_UNLOCK_CHECK
+
 u32 dsi_irq;
 u32 esc_byte_ratio;
 
@@ -117,6 +120,104 @@ static int mipi_ulps_mode(int enter)
 }
 #endif //ULPS_IMPLEMENTATION
 
+#ifdef PLL_UNLOCK_CHECK
+#define RESET_COUNT 0xF
+static int mipi_dsi_on_internal(struct msm_fb_data_type *mfd)
+{
+        int ret = 0;
+        struct fb_info *fbi;
+        struct fb_var_screeninfo *var;
+        struct mipi_panel_info *mipi;
+        u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
+        u32 dummy_xres, dummy_yres;
+        int target_type = 0;
+        fbi = mfd->fbi;
+        var = &fbi->var;
+
+
+		pr_err("#### %s++\n", __func__);
+
+        mipi_dsi_prepare_clocks();
+        mipi_dsi_ahb_ctrl(1);
+        mipi_dsi_phy_ctrl(1);
+        mipi_dsi_phy_init(0, &(mfd->panel_info), target_type);
+        mipi_dsi_clk_enable();
+
+        MIPI_OUTP(MIPI_DSI_BASE + 0x114, 1);
+        MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0);
+
+        hbp = var->left_margin;
+        hfp = var->right_margin;
+        vbp = var->upper_margin;
+        vfp = var->lower_margin;
+        hspw = var->hsync_len;
+        vspw = var->vsync_len;
+        width = mfd->panel_info.xres;
+        height = mfd->panel_info.yres;
+        mipi  = &mfd->panel_info.mipi;
+        dummy_xres = mfd->panel_info.lcdc.xres_pad;
+        dummy_yres = mfd->panel_info.lcdc.yres_pad;
+
+        /* DSI_LAN_SWAP_CTRL */
+        MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, mipi_dsi_pdata->dlane_swap);
+        MIPI_OUTP(MIPI_DSI_BASE + 0x20,
+                        ((hbp + width + dummy_xres) << 16 | (hbp)));
+        MIPI_OUTP(MIPI_DSI_BASE + 0x24,
+                        ((vbp + height + dummy_yres) << 16 | (vbp)));
+        MIPI_OUTP(MIPI_DSI_BASE + 0x28,
+                        (vbp + height + dummy_yres + vfp) << 16 |
+                        (hbp + width + dummy_xres + hfp));
+
+        MIPI_OUTP(MIPI_DSI_BASE + 0x2c, (hspw << 16));
+        MIPI_OUTP(MIPI_DSI_BASE + 0x30, 0);
+       MIPI_OUTP(MIPI_DSI_BASE + 0x34, (vspw << 16));
+        //mipi_dsi_host_init(mipi, mipi_dsi_pdata->dlane_swap);
+        mipi_dsi_op_mode_config(mipi->mode);
+
+		pr_err("#### %s--\n", __func__);
+
+        return ret;
+}
+
+static int mipi_dsi_off_internal(struct msm_fb_data_type *mfd)
+{
+        int ret = 0;
+
+		pr_err("#### %s++\n", __func__);
+
+        mipi_dsi_controller_cfg(0);
+        mipi_dsi_clk_disable();
+
+        MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
+
+        mipi_dsi_phy_ctrl(0);
+        mipi_dsi_ahb_ctrl(0);
+        mipi_dsi_unprepare_clocks();
+
+		pr_err("#### %s--\n", __func__);
+
+        return ret;
+}
+
+static void pll_unlock_reset(struct msm_fb_data_type *mfd)
+{
+		pr_err("#### %s++\n", __func__);
+
+        /* stop DSI PLL */
+        mipi_dsi_off_internal(mfd);
+
+        mdelay(100);
+
+        /* restart DSI PLL */
+        mipi_dsi_on_internal(mfd);
+
+		pr_err("#### %s--\n", __func__);
+
+        return;
+}
+#endif
+
+#define DSI_VIDEO_BASE	0xF0000
 static int mipi_dsi_off(struct platform_device *pdev)
 {
 	int ret = 0;
@@ -129,14 +230,13 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	struct fb_var_screeninfo *var;
 	u32 dummy_xres, dummy_yres;
 #endif
+    pr_debug("%s+:\n", __func__);
 
 	mfd = platform_get_drvdata(pdev);
-
 #ifdef ULPS_IMPLEMENTATION
 	fbi = mfd->fbi;
 	var = &fbi->var;
-#endif
-
+#endif	
 	pinfo = &mfd->panel_info;
 
 	if (mdp_rev >= MDP_REV_41)
@@ -149,7 +249,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	/* make sure dsi clk is on so that
 	 * dcs commands can be sent
 	 */
-	mipi_dsi_clk_cfg(1);
+		mipi_dsi_clk_cfg(1);
 
 	/* make sure dsi_cmd_mdp is idle */
 	mipi_dsi_cmd_mdp_busy();
@@ -171,7 +271,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	}
 
 	ret = panel_next_off(pdev);
-
 #ifdef ULPS_IMPLEMENTATION
 	if( read_recovery == 0 )
 	{
@@ -194,18 +293,15 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		hbp = var->left_margin;
 		hfp = var->right_margin;
 		vbp = var->upper_margin;
-		vfp = var->lower_margin;
+         	vfp = var->lower_margin;
 		hspw = var->hsync_len;
 		vspw = var->vsync_len;
 		width = mfd->panel_info.xres;
 		height = mfd->panel_info.yres;
 		dummy_xres = mfd->panel_info.lcdc.xres_pad;
 		dummy_yres = mfd->panel_info.lcdc.yres_pad;
-#if defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
-		MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, mipi_dsi_pdata->dlane_swap);
-#else
+		//MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, mipi_dsi_pdata->dlane_swap);
 		MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, 0x01); // dlane_swap : 0x01
-#endif
 		MIPI_OUTP(MIPI_DSI_BASE + 0x20, ((hbp + width + dummy_xres) << 16 | (hbp)));
 		MIPI_OUTP(MIPI_DSI_BASE + 0x24, ((vbp + height + dummy_yres) << 16 | (vbp)));
 		MIPI_OUTP(MIPI_DSI_BASE + 0x28, (vbp + height + dummy_yres + vfp) << 16 | (hbp + width + dummy_xres + hfp));
@@ -221,8 +317,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	
 		mipi_ulps_mode(1);
 	}
-#endif
-
+#endif	
 #ifdef CONFIG_MSM_BUS_SCALING
 	mdp_bus_scale_update_request(0);
 #endif
@@ -238,15 +333,28 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	mipi_dsi_ahb_ctrl(0);
 	spin_unlock_bh(&dsi_clk_lock);
 
-	mipi_dsi_unprepare_clocks();
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
-		mipi_dsi_pdata->dsi_power_save(0);
-
+		mipi_dsi_unprepare_clocks();
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id == LCD_IC_ID_ONE) {
+#endif
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+			mipi_dsi_pdata->dsi_power_save(0);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	}
+#endif
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_client_reset)
-		mipi_dsi_pdata->dsi_client_reset();
-#endif	
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_client_reset)
+			mipi_dsi_pdata->dsi_client_reset();
+#endif		
 
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
+#endif
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+			mipi_dsi_pdata->dsi_power_save(0);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	}
+#endif
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
@@ -273,11 +381,12 @@ static int mipi_dsi_on(struct platform_device *pdev)
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	int retry_count=10;
 #endif
-#if defined(CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL) || defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL) || (defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL) && !defined(CONFIG_MACH_HENNESSY_DUOS_CTC))
-	u8 need_set_op_mode_before_panel_on = 1;
-#else
-	u8 need_set_op_mode_before_panel_on = 0;
+
+#ifdef PLL_UNLOCK_CHECK
+        int val;
+        int reset_times = 0;
 #endif
+    pr_debug("%s+:\n", __func__);
 
 	mfd = platform_get_drvdata(pdev);
 	fbi = mfd->fbi;
@@ -285,10 +394,16 @@ static int mipi_dsi_on(struct platform_device *pdev)
 	pinfo = &mfd->panel_info;
 	esc_byte_ratio = pinfo->mipi.esc_byte_ratio;
 
-RETRY_MIPI_DSI_ON:
-
-	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
-		mipi_dsi_pdata->dsi_power_save(1);
+RETRY_MIPI_DSI_ON:	
+	
+#if 0
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
+#endif
+		if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
+			mipi_dsi_pdata->dsi_power_save(1);
+#if 0
+	}
+#endif
 
 	cont_splash_clk_ctrl(0);
 	mipi_dsi_prepare_clocks();
@@ -312,8 +427,8 @@ RETRY_MIPI_DSI_ON:
 	{
 		mipi_ulps_mode(0);
 	}
-#endif
-
+#endif	
+	
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 1);
 	MIPI_OUTP(MIPI_DSI_BASE + 0x114, 0);
 
@@ -344,8 +459,7 @@ RETRY_MIPI_DSI_ON:
 					width + dummy_xres + hfp - 1));
 		} else {
 			/* DSI_LAN_SWAP_CTRL */
-			MIPI_OUTP(MIPI_DSI_BASE + 0x00ac,
-						mipi_dsi_pdata->dlane_swap);
+			MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, mipi->dlane_swap);
 
 			MIPI_OUTP(MIPI_DSI_BASE + 0x20,
 				((hbp + width + dummy_xres) << 16 | (hbp)));
@@ -383,13 +497,13 @@ RETRY_MIPI_DSI_ON:
 		MIPI_OUTP(MIPI_DSI_BASE + 0x58, data);
 	}
 
-	mipi_dsi_host_init(mipi, mipi_dsi_pdata->dlane_swap);
+	mipi_dsi_host_init(mipi);
 
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_client_reset)
 		mipi_dsi_pdata->dsi_client_reset();
-#endif
-
+#endif	
+	
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
 
@@ -403,32 +517,37 @@ RETRY_MIPI_DSI_ON:
 		mutex_lock(&mfd->dma->ov_mutex);
 	else
 		down(&mfd->dma->mutex);
-
-	if (need_set_op_mode_before_panel_on)
-		mipi_dsi_op_mode_config(mipi->mode); // call this function before panel_next_on 
-
+#if defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL) || defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)
+	mipi_dsi_op_mode_config(mipi->mode); // call this function before panel_next_on 
+#endif
 #ifdef CONFIG_FB_MSM_MIPI_HX8369B_WVGA_PT_PANEL
 	ret = panel_next_on(pdev);
-
-	if(!ret && retry_count > 0) {
-		retry_count--;
-		if (mdp_rev >= MDP_REV_41)
-			mutex_unlock(&mfd->dma->ov_mutex);
-		else
-			up(&mfd->dma->mutex);
-
-		mipi_dsi_off(pdev);
-
-		goto RETRY_MIPI_DSI_ON;
-	}
-
-	ret = 0;
-#else
-	ret = panel_next_on(pdev);
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	if (lcd_ic_id != LCD_IC_ID_ONE) {
 #endif
 
-	if (!need_set_op_mode_before_panel_on)
-		mipi_dsi_op_mode_config(mipi->mode);
+		if (!ret && retry_count > 0) {
+			retry_count--;
+			if (mdp_rev >= MDP_REV_41)
+				mutex_unlock(&mfd->dma->ov_mutex);
+			else
+				up(&mfd->dma->mutex);
+
+			mipi_dsi_off(pdev);
+
+			goto RETRY_MIPI_DSI_ON;
+		}
+
+		ret = 0;
+#if defined(CONFIG_FB_MSM_MIPI_NT35502_VIDEO_WVGA_PT_PANEL)
+	}
+#endif
+#else
+		ret = panel_next_on(pdev);
+#endif	
+#if !defined(CONFIG_FB_MSM_MIPI_NT35510_CMD_WVGA_PT_PANEL) && !defined(CONFIG_FB_MSM_MIPI_HX8357_CMD_SMD_HVGA_PT_PANEL)	
+	mipi_dsi_op_mode_config(mipi->mode);
+#endif	
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
 		if (pinfo->lcd.vsync_enable) {
@@ -477,10 +596,6 @@ RETRY_MIPI_DSI_ON:
 		}
 	}
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2);
-#endif
-
 	mdp4_overlay_dsi_state_set(ST_DSI_RESUME);
 
 	if (mdp_rev >= MDP_REV_41)
@@ -488,9 +603,29 @@ RETRY_MIPI_DSI_ON:
 	else
 		up(&mfd->dma->mutex);
 
+#ifdef PLL_UNLOCK_CHECK
+        /* check pll unlock */
+        while ((MIPI_INP(mipi_dsi_base + 0x11c) & 0x10000) && reset_times < RESET_COUNT) {
+                pr_err("%s: pll unlock, reset %d times\n", __func__, reset_times);
+                /* clear dsi unlock bit */
+                val = MIPI_INP(MIPI_DSI_BASE + 0x11c);
+                MIPI_OUTP(MIPI_DSI_BASE + 0x11c, val & 0x01111);
+
+                pll_unlock_reset(mfd);
+                mdelay(200);
+                reset_times++;
+        }
+#endif	
+	
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
+}
+
+
+static int mipi_dsi_late_init(struct platform_device *pdev)
+{
+	return panel_next_late_init(pdev);
 }
 
 
@@ -533,7 +668,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		}
 
 		dsi_irq = platform_get_irq(pdev, 0);
-		if (dsi_irq < 0) {
+		if ((int)dsi_irq < 0) {
 			pr_err("mipi_dsi: can not get mdp irq\n");
 			return -ENOMEM;
 		}
@@ -640,6 +775,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	pdata = mdp_dev->dev.platform_data;
 	pdata->on = mipi_dsi_on;
 	pdata->off = mipi_dsi_off;
+	pdata->late_init = mipi_dsi_late_init;
 	pdata->next = pdev;
 
 	/*

@@ -35,8 +35,6 @@
 #include "s5k4ecgx.h"
 #if defined(CONFIG_MACH_ARUBASLIM_OPEN)
 #include "s5k4ecgx_regs_arubaslim.h"
-#elif defined (CONFIG_MACH_HENNESSY_DUOS_CTC)
-#include "s5k4ecgx_regs_hennesy.h"
 #else
 #include "s5k4ecgx_regs.h"
 #endif
@@ -242,22 +240,12 @@ void s5k4ecgx_regs_table_init(void)
 	mm_segment_t fs = get_fs();
 
 	printk("%s %d\n", __func__, __LINE__);
-
-	/*Set the current segment to kernel data segment */
 	set_fs(get_ds());
+		filp = filp_open("/data/s5k4ecgx_regs_arubaslim.h", O_RDONLY, 0);
 
-#if defined (CONFIG_MACH_ARUBASLIM_OPEN)
-	filp = filp_open("/sdcard/s5k4ecgx_regs_arubaslim.h", O_RDONLY, 0);
-#else
-	filp = filp_open("/data/s5k4ecgx_regs_arubaslim.h", O_RDONLY, 0);
-#endif
 
 	if (IS_ERR(filp)) {
-#if defined (CONFIG_MACH_ARUBASLIM_OPEN)
-		printk("%s(): Error %ld opening %s\n", __FUNCTION__, -PTR_ERR(filp), "/sdcard/s5k4ecgx_regs_arubaslim.h");
-#else
 		printk("[S5K4ECGX]file open error\n");
-#endif
 		return;
 	}
 	l = filp->f_path.dentry->d_inode->i_size;
@@ -296,9 +284,9 @@ void s5k4ecgx_regs_table_exit(void)
 	printk("%s %d\n", __func__, __LINE__);
 	if(s5k4ecgx_regs_table != NULL){
 		vfree(s5k4ecgx_regs_table);
+
 		s5k4ecgx_regs_table = NULL;
-		s5k4ecgx_regs_table_size = 0;
-	}
+		}
 
 }
 
@@ -421,7 +409,7 @@ void s5k4ecgx_exif_iso(void)
 		s5k4ecgx_exif.iso = 50;
 	else if(iso_value < 0x1A0)
 		s5k4ecgx_exif.iso = 100;
-	else if(iso_value < 0x374)
+	else if(iso_value < 0x380)
 		s5k4ecgx_exif.iso = 200;
 	else
 		s5k4ecgx_exif.iso = 400;
@@ -576,7 +564,7 @@ static int s5k4ecgx_get_sensor_af_status(int32_t index)
 
 		printk("s5k4ecgx_get_sensor_af_status 1st AF Searching ret = %d \n", af_status);
 
-		if (af_status == EXT_CFG_AF_LOWCONF) {	//AF fail
+		if (af_status != EXT_CFG_AF_PROGRESS) {	//AF fail
 			s5k4ecgx_control.af_mode = SHUTTER_AF_MODE;
 			if (s5k4ecgx_get_flash_status()) {
 				s5k4ecgx_set_ae_awb(0);	//kk0704.park :: Sensor Company Guide
@@ -842,6 +830,31 @@ printk("@@@@@ s5k4ecgx_sensor_setting 11111@@@@@\n");
 printk("@@@@@ s5k4ecgx_sensor_setting 22222@@@@@\n");
 		if (rt == RES_PREVIEW || rt == RES_CAPTURE) {
 			CAM_DEBUG(" UPDATE_PERIODIC");
+
+			msleep(30);
+/*
+			CAM_DEBUG(" start AP MIPI setting");
+			if (s5k4ecgx_control.s_ctrl->sensordata->
+					sensor_platform_info->
+					csi_lane_params != NULL) {
+					CAM_DEBUG(" lane_assign ="\
+						" 0x%x",
+						s5k4ecgx_control.s_ctrl->
+						sensordata->
+						sensor_platform_info->
+						csi_lane_params->
+						csi_lane_assign);
+					CAM_DEBUG(" lane_mask ="\
+						" 0x%x",
+						s5k4ecgx_control.s_ctrl->
+						sensordata->
+						sensor_platform_info->
+						csi_lane_params->
+						csi_lane_mask);
+			}
+			mb();
+			msleep(20);
+*/
 			config_csi2 = 1;
 			msleep(30);
 		}
@@ -1145,58 +1158,30 @@ static void s5k4ecgx_set_iso(int iso)
 {
 	CAM_DEBUG(" %d", iso);
 
-	if (s5k4ecgx_control.awb_mode == CAMERA_WHITE_BALANCE_AUTO) {
-		switch (iso) {
-			case CAMERA_ISO_MODE_AUTO:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_Auto);
-				break;
+	switch (iso) {
+	case CAMERA_ISO_MODE_AUTO:
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_Auto);
+		break;
 
-			case CAMERA_ISO_MODE_50:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_50);
-				break;
+	case CAMERA_ISO_MODE_50:
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_50);
+		break;
 
-			case CAMERA_ISO_MODE_100:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_100);
-				break;
+	case CAMERA_ISO_MODE_100:
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_100);
+		break;
 
-			case CAMERA_ISO_MODE_200:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_200);
-				break;
+	case CAMERA_ISO_MODE_200:
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_200);
+		break;
 
-			case CAMERA_ISO_MODE_400:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_400);
-				break;
+	case CAMERA_ISO_MODE_400:
+		S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_400);
+		break;
 
-			default:
-				cam_info(" iso : default");
-				break;
-		}
-	} else {
-		switch (iso) {
-			case CAMERA_ISO_MODE_AUTO:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_Auto_MWB_on);
-				break;
-
-			case CAMERA_ISO_MODE_50:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_50_MWB_on);
-				break;
-
-			case CAMERA_ISO_MODE_100:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_100_MWB_on);
-				break;
-
-			case CAMERA_ISO_MODE_200:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_200_MWB_on);
-				break;
-
-			case CAMERA_ISO_MODE_400:
-				S5K4ECGX_WRITE_LIST(s5k4ecgx_ISO_400_MWB_on);
-				break;
-
-			default:
-				cam_info(" iso : default");
-				break;
-		}
+	default:
+		cam_info(" iso : default");
+		break;
 	}
 
 	s5k4ecgx_control.settings.iso = iso;
@@ -1229,14 +1214,9 @@ static int s5k4ecgx_set_touchaf_pos(int x, int y)
 		previewHeight = 480;
 	}
 
-	x = previewWidth - x;
-	y = previewHeight - y;
-
 	s5k4ecgx_sensor_write(0x002C, 0x7000);
 	s5k4ecgx_sensor_write(0x002E, 0x02A0);
 	s5k4ecgx_sensor_read(0x0F12, (unsigned short *)&inWindowWidth);
-	s5k4ecgx_sensor_write(0x002C, 0x7000);
-	s5k4ecgx_sensor_write(0x002E, 0x02A2);
 	s5k4ecgx_sensor_read(0x0F12, (unsigned short *)&inWindowHeight);
 	inWindowWidth = inWindowWidth * previewWidth / 1024;
 	inWindowHeight = inWindowHeight * previewHeight / 1024;
@@ -1244,11 +1224,10 @@ static int s5k4ecgx_set_touchaf_pos(int x, int y)
 	s5k4ecgx_sensor_write(0x002C, 0x7000);
 	s5k4ecgx_sensor_write(0x002E, 0x0298);
 	s5k4ecgx_sensor_read(0x0F12, (unsigned short *)&outWindowWidth);
-	s5k4ecgx_sensor_write(0x002C, 0x7000);
-	s5k4ecgx_sensor_write(0x002E, 0x029A);
 	s5k4ecgx_sensor_read(0x0F12, (unsigned short *)&outWindowHeight);
 	outWindowWidth = outWindowWidth * previewWidth / 1024;
 	outWindowHeight = outWindowHeight * previewHeight / 1024;
+
 
 	if (x < inWindowWidth/2)	
 		x = inWindowWidth/2+1;
@@ -1259,8 +1238,8 @@ static int s5k4ecgx_set_touchaf_pos(int x, int y)
 	else if (y > previewHeight - inWindowHeight/2)
 		y = previewHeight - inWindowHeight/2 -1;
 
-	s5k4ecgx_touchaf_set_resolution(0x029C, (x - inWindowWidth/2) * 1024 / previewWidth);		
-	s5k4ecgx_touchaf_set_resolution(0x029E, (y - inWindowHeight/2) * 1024 / previewHeight);		
+	s5k4ecgx_touchaf_set_resolution(0x029C, (x - inWindowWidth/2) * 1024 / previewWidth);		//in window startX
+	s5k4ecgx_touchaf_set_resolution(0x029E, (y - inWindowHeight/2) * 1024 / previewHeight);		//in window startX
 
 	if (x < outWindowWidth/2)	
 		x = outWindowWidth/2+1;
@@ -1271,8 +1250,8 @@ static int s5k4ecgx_set_touchaf_pos(int x, int y)
 	else if (y > previewHeight - outWindowHeight/2)
 		y = previewHeight - outWindowHeight/2 -1;
 
-	s5k4ecgx_touchaf_set_resolution(0x0294, (x - outWindowWidth/2) * 1024 / previewWidth);		
-	s5k4ecgx_touchaf_set_resolution(0x0296, (y - outWindowHeight/2) * 1024 / previewHeight);		
+	s5k4ecgx_touchaf_set_resolution(0x0294, (x - outWindowWidth/2) * 1024 / previewWidth);		//out window startX
+	s5k4ecgx_touchaf_set_resolution(0x0296, (y - outWindowHeight/2) * 1024 / previewHeight);		//in window startX
 
 	s5k4ecgx_touchaf_set_resolution(0x02A4, 0x0001);
 
@@ -1297,128 +1276,6 @@ static int s5k4ecgx_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 
 static int s5k4ecgx_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 {
-#if defined (CONFIG_MACH_ARUBASLIM_OPEN)
-	int32_t rc = 0;
-	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
-
-	CAM_DEBUG("%s   E\n", __func__);
-
-#ifdef CONFIG_LOAD_FILE
-	CAM_DEBUG("[In sensor_power_up]s5k4ecgx_reg_table_init_start!!");
-	s5k4ecgx_regs_table_init();
-#endif
-
-	s_ctrl->reg_ptr = kzalloc(sizeof(struct regulator *)
-			* data->sensor_platform_info->num_vreg, GFP_KERNEL);
-	if (!s_ctrl->reg_ptr) {
-		pr_err("%s: could not allocate mem for regulators\n",
-			__func__);
-		return -ENOMEM;
-	}
-	rc = msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-			s_ctrl->sensordata->sensor_platform_info->num_vreg,
-			s_ctrl->reg_ptr, 1);
-	if (rc < 0) {
-		pr_err("%s: regulator on failed\n", __func__);
-		goto config_vreg_failed;
-	}
-
-	gpio_request(ARUBA_CAM_STBY, "aruba_stby");
-	gpio_request(ARUBA_CAM_RESET, "aruba_reset");
-	gpio_request(ARUBA_CAM_IO_EN, "aruba_a_en");
-	gpio_request(ARUBA_CAM_C_EN, "aruba_c_en");
-	gpio_request(ARUBA_CAM_AF_EN, "aruba_af_en");
-
-	if (rc < 0) {
-		pr_err("%s: [ARUBASLIM]gpio_request failed\n", __func__);
-	}
-
-	gpio_direction_output(ARUBA_CAM_STBY, 0);
-	gpio_direction_output(ARUBA_CAM_RESET, 0);
-	gpio_direction_output(ARUBA_CAM_IO_EN, 0);
-	gpio_direction_output(ARUBA_CAM_C_EN, 0);
-	gpio_direction_output(ARUBA_CAM_AF_EN, 0);
-
-	gpio_set_value_cansleep(ARUBA_CAM_STBY, 0);		//STBYN :: MSM_GPIO 96
-	gpio_set_value_cansleep(ARUBA_CAM_RESET, 0);	//RSTN :: MSM_GPIO 85
-	gpio_set_value_cansleep(ARUBA_CAM_IO_EN, 0);
-	gpio_set_value_cansleep(ARUBA_CAM_C_EN, 0);
-
-	msleep(1);
-	rc = msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-			s_ctrl->sensordata->sensor_platform_info->num_vreg,
-			s_ctrl->reg_ptr, 1);
-	if (rc < 0) {
-		pr_err("%s: [ARUBASLIM]enable regulator failed\n", __func__);
-		goto enable_vreg_failed;
-	}
-	udelay(150);// VCAM_A_2.8V
-
-	gpio_set_value(ARUBA_CAM_IO_EN, 1);
-	udelay(250);// GPIO 4 : EN_C_EN / VVT_1.8V
-
-	gpio_set_value(ARUBA_CAM_AF_EN, 1);
-
-	gpio_set_value(FRONT_CAM_STBY, 1);
-	msleep(2);	// gpio 76 : VT_CAM_STBY
-
-	rc = msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
-		cam_clk_info, &s_ctrl->cam_clk, ARRAY_SIZE(cam_clk_info), 1);
-	if (rc < 0) {
-		pr_err("%s: clk enable failed\n", __func__);
-		goto enable_clk_failed;
-	}
-	msleep(2);	// CAM_MCLK
-
-	gpio_set_value(FRONT_CAM_RESET, 1);
-	msleep(1);	// VT_CAM_RESET
-
-	gpio_set_value(FRONT_CAM_STBY, 0);
-	msleep(1);	// VT_CAM_RESET : LOW
-
-	gpio_set_value(ARUBA_CAM_C_EN, 1); // GPIO 107 : CAM_C_EN
-	msleep(1);	//GPIO 107 : CAM_C_EN
-
-	gpio_set_value_cansleep(ARUBA_CAM_STBY, 1);
-	msleep(1);	//GPIO 96 : 5M_CAM_STBY
-
-	gpio_set_value_cansleep(ARUBA_CAM_RESET, 1);
-	msleep(1);	//GPIO 85 : 5M_CAM_RESET
-	usleep_range(1000, 2000);
-
-	if (data->sensor_platform_info->ext_power_ctrl != NULL)
-		data->sensor_platform_info->ext_power_ctrl(1);
-
-	if (data->sensor_platform_info->i2c_conf &&
-		data->sensor_platform_info->i2c_conf->use_i2c_mux)
-		msm_sensor_enable_i2c_mux(data->sensor_platform_info->i2c_conf);
-
-	return rc;
-
-enable_clk_failed:
-//kk0704.park :: ARUBA TEMP		msm_camera_config_gpio_table(data, 0);
-config_gpio_failed:
-	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-			s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-			s_ctrl->sensordata->sensor_platform_info->num_vreg,
-			s_ctrl->reg_ptr, 0);
-
-enable_vreg_failed:
-	msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-		s_ctrl->sensordata->sensor_platform_info->num_vreg,
-		s_ctrl->reg_ptr, 0);
-config_vreg_failed:
-//kk0704.park ARUBA TEMP	msm_camera_request_gpio_table(data, 0);
-request_gpio_failed:
-	kfree(s_ctrl->reg_ptr);
-
-	CAM_DEBUG("%s  X\n", __func__);
-
-	return rc;
-#else
 	int rc = 0;
 
 	printk("s5k4ecgx_sensor_power_up E\n");
@@ -1446,63 +1303,10 @@ request_gpio_failed:
 	CAM_DEBUG(" X");
 
 	return rc;
-#endif
 }
-
 
 static int s5k4ecgx_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
-#if defined (CONFIG_MACH_ARUBASLIM_OPEN)
-	struct msm_camera_sensor_info *data = s_ctrl->sensordata;
-
-	CAM_DEBUG("%s   E\n", __func__);
-
-	if (data->sensor_platform_info->i2c_conf &&
-		data->sensor_platform_info->i2c_conf->use_i2c_mux)
-		msm_sensor_disable_i2c_mux(
-			data->sensor_platform_info->i2c_conf);
-
-	if (data->sensor_platform_info->ext_power_ctrl != NULL)
-		data->sensor_platform_info->ext_power_ctrl(0);
-	msleep(1);
-
-	cam_flash_off(FLASH_MODE_CAMERA); //kk0704.park :: Flash Off when Power down
-
-	gpio_set_value_cansleep(ARUBA_CAM_RESET, 0); // GPIO 85	
-	msm_cam_clk_enable(&s_ctrl->sensor_i2c_client->client->dev,
-		cam_clk_info, &s_ctrl->cam_clk, ARRAY_SIZE(cam_clk_info), 0);
-	msleep(1);
-
-	gpio_set_value_cansleep(ARUBA_CAM_STBY, 0); //GPIO 96
-	gpio_set_value_cansleep(FRONT_CAM_RESET, 0);
-	gpio_set_value_cansleep(ARUBA_CAM_C_EN, 0);
-	gpio_set_value_cansleep(ARUBA_CAM_IO_EN, 0);
-	gpio_set_value_cansleep(ARUBA_CAM_AF_EN, 0);
-
-	gpio_free(ARUBA_CAM_RESET);
-	gpio_free(ARUBA_CAM_STBY);
-	gpio_free(FRONT_CAM_RESET);
-	gpio_free(ARUBA_CAM_C_EN);
-	gpio_free(ARUBA_CAM_IO_EN);
-	gpio_free(ARUBA_CAM_AF_EN);
-
-	msm_camera_enable_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-		s_ctrl->sensordata->sensor_platform_info->num_vreg,
-		s_ctrl->reg_ptr, 0);
-	msm_camera_config_vreg(&s_ctrl->sensor_i2c_client->client->dev,
-		s_ctrl->sensordata->sensor_platform_info->cam_vreg,
-		s_ctrl->sensordata->sensor_platform_info->num_vreg,
-		s_ctrl->reg_ptr, 0);
-	kfree(s_ctrl->reg_ptr);
-
-#ifdef CONFIG_LOAD_FILE
-	s5k4ecgx_regs_table_exit();
-#endif
-	CAM_DEBUG("%s  X\n", __func__);
-
-	return 0;
-#else
 	int rc = 0;
 
 	CAM_DEBUG(" E");
@@ -1536,7 +1340,6 @@ static int s5k4ecgx_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	CAM_DEBUG(" X");
 
 	return rc;
-#endif
 }
 
 void s5k4ecgx_check_ae_stable()
@@ -1786,12 +1589,12 @@ void s5k4ecgx_sensor_start_stream(struct msm_sensor_ctrl_t *s_ctrl)
 {
 
 	printk(" s5k4ecgx_sensor_start_stream E\n");
-#ifndef CONFIG_MACH_ARUBASLIM_OPEN
+
 #ifdef CONFIG_LOAD_FILE
 	printk("[MSM_SENSOR]s5k4ecgx_reg_table_init_start!!");
 	s5k4ecgx_regs_table_init();
 #endif
-#endif
+
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_init_reg1);
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_init_reg2);
 	s5k4ecgx_control.settings.scenemode = CAMERA_SCENE_AUTO;
@@ -1805,8 +1608,6 @@ void s5k4ecgx_sensor_stop_stream(struct msm_sensor_ctrl_t *s_ctrl)
 
 	printk(" s5k4ecgx_sensor_stop_stream E\n");
 	//AF position Default
-	S5K4ECGX_WRITE_LIST(s5k4ecgx_Preview_Return);
-	msleep(10);	
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Normal_mode_1);
 	msleep(150);
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_AF_Normal_mode_2);
@@ -1818,8 +1619,9 @@ void s5k4ecgx_sensor_preview_mode(struct msm_sensor_ctrl_t *s_ctrl)
 {
 
 	printk(" s5k4ecgx_sensor_preview_mode E\n");
-	s5k4ecgx_set_ae_awb(0);
+
 	S5K4ECGX_WRITE_LIST(s5k4ecgx_Preview_Return);
+	s5k4ecgx_set_ae_awb(0);
 
 	printk("  s5k4ecgx_sensor_preview_mode X\n");
 
@@ -2007,12 +1809,9 @@ static struct msm_sensor_fn_t s5k4ecgx_func_tbl = {
 #if defined (CONFIG_MACH_DELOS_OPEN) || defined (CONFIG_MACH_DELOS_CTC) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
     .sensor_power_up = msm_sensor_power_up_delos_open,
 	.sensor_power_down = msm_sensor_power_down_delos_open,
-#elif defined (CONFIG_MACH_ARUBA_OPEN)
+#elif defined (CONFIG_MACH_ARUBA_OPEN) || defined (CONFIG_MACH_ARUBASLIM_OPEN) 
 	.sensor_power_up = msm_sensor_power_up_aruba_open,
 	.sensor_power_down = msm_sensor_power_down_aruba_open,
-#elif defined (CONFIG_MACH_ARUBASLIM_OPEN)
-	.sensor_power_up = s5k4ecgx_sensor_power_up,
-	.sensor_power_down = s5k4ecgx_sensor_power_down,
 #elif defined CONFIG_MACH_BAFFIN_DUOS_CTC
 	.sensor_power_up = msm_sensor_power_up_baffin_duos,
 	.sensor_power_down = msm_sensor_power_down_baffin_duos,

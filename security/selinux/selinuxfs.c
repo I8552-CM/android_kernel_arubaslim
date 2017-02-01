@@ -31,6 +31,7 @@
 #include <linux/kobject.h>
 #include <linux/ctype.h>
 
+
 /* selinuxfs pseudo filesystem for exporting the security policy API.
    Based on the proc code and the fs/nfsd/nfsctl.c code. */
 
@@ -136,6 +137,7 @@ static ssize_t sel_read_enforce(struct file *filp, char __user *buf,
 	return simple_read_from_buffer(buf, count, ppos, tmpbuf, length);
 }
 
+#ifndef CONFIG_SECURITY_SELINUX_FORCE_PERMISSIVE
 #ifdef CONFIG_SECURITY_SELINUX_DEVELOP
 static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 				 size_t count, loff_t *ppos)
@@ -150,7 +152,7 @@ static ssize_t sel_write_enforce(struct file *file, const char __user *buf,
 		goto out;
 
 	/* No partial writes. */
-	length = EINVAL;
+	length = -EINVAL;
 	if (*ppos != 0)
 		goto out;
 
@@ -190,10 +192,15 @@ out:
 #else
 #define sel_write_enforce NULL
 #endif
+#endif
 
 static const struct file_operations sel_enforce_ops = {
 	.read		= sel_read_enforce,
+#ifdef CONFIG_SECURITY_SELINUX_FORCE_PERMISSIVE
+	.write		= NULL,
+#else
 	.write		= sel_write_enforce,
+#endif
 	.llseek		= generic_file_llseek,
 };
 
@@ -1232,6 +1239,7 @@ static int sel_make_bools(void)
 		kfree(bool_pending_names[i]);
 	kfree(bool_pending_names);
 	kfree(bool_pending_values);
+	bool_num = 0;
 	bool_pending_names = NULL;
 	bool_pending_values = NULL;
 

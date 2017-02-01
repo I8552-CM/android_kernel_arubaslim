@@ -18,6 +18,9 @@
 static struct msm_panel_info pinfo;
 
 extern int charging_boot;
+#if defined(CONFIG_VARIANT_SECOND_BOOTIMAGE) 
+extern char Sales_Code[3];
+#endif
 
 /* DSI Bit Clock at 440 MHz, 2 lane, RGB888
 static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db_440 = {
@@ -37,24 +40,6 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db_440 = {
 };
 */
 
-#if defined(CONFIG_MACH_ARUBASLIM_OPEN)
-static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = { 
-	/* DSI Bit Clock at 494 MHz, 2 lane, RGB888 */ 
-	/* regulator */ 
-	{0x03, 0x01, 0x01, 0x00}, 
-	/* timing to change*/ 
-	{0xb8, 0x8e, 0x1f, 0x00, 0x97, 0x94, 0x22, 0x90, 
-	0x18, 0x03, 0x04}, 
-	/* phy ctrl */ 
-	{0x7f, 0x00, 0x00, 0x00}, 
-	/* strength */ 
-	{0xbb, 0x02, 0x06, 0x00}, 
-	/* pll control to change */ 
-	{0x00, 0xe7, 0x31, 0xd2, 0x00, 0x40, 0x37, 0x62, 
-	0x01, 0x0f, 0x07, 
-	0x05, 0x14, 0x03, 0x0, 0x0, 0x0, 0x20, 0x0, 0x02, 0x0}, 
-};
-#else
 static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	/* DSI Bit Clock at 492 MHz, 2 lane, RGB888 */
 	/* regulator */
@@ -71,7 +56,6 @@ static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db = {
 	0x01, 0x0f, 0x07,
 	0x05, 0x14, 0x03, 0x0, 0x0, 0x0, 0x20, 0x0, 0x02, 0x0},
 };
-#endif
 
 static struct mipi_dsi_phy_ctrl dsi_video_mode_phy_db_366 = {
 	/* DSI Bit Clock at 366 MHz, 2 lane, RGB888 */ 
@@ -117,17 +101,12 @@ static int mipi_video_hx8369b_wvga_pt_init(void)
 		pinfo.lcdc.v_front_porch = 10;
 		pinfo.lcdc.v_pulse_width = 6;
 	} else {
-#if defined(CONFIG_MACH_ARUBASLIM_OPEN)
-		pinfo.lcdc.h_back_porch  = 150;
-		pinfo.lcdc.h_front_porch = 165;
-#else
 		if(hx8369b_read_id==HX8369B_BOE_55C090) {
 			pinfo.lcdc.h_back_porch = 135;
 		} else {
 			pinfo.lcdc.h_back_porch = 180;
 		}
 		pinfo.lcdc.h_front_porch = 150;
-#endif
 		pinfo.lcdc.h_pulse_width = 32;
 		pinfo.lcdc.v_back_porch = 22;
 		pinfo.lcdc.v_front_porch = 20;
@@ -143,11 +122,7 @@ static int mipi_video_hx8369b_wvga_pt_init(void)
 	if(hx8369b_read_id==HX8369B_BOE_55BC90) {
 		pinfo.clk_rate = 366000000;
 	} else {
-#if defined(CONFIG_MACH_ARUBASLIM_OPEN)
-		pinfo.clk_rate = 494000000;
-#else
 		pinfo.clk_rate = 492000000;
-#endif
 	}
 	
 	pinfo.bl_max = 255; /*16; CHECK THIS!!!*/
@@ -208,7 +183,15 @@ static int mipi_video_hx8369b_wvga_pt_init(void)
 
 /* Temporary */
 	if (charging_boot != 1)
+	{
+#if defined(CONFIG_VARIANT_SECOND_BOOTIMAGE)
+		if((strncmp(Sales_Code, "ETR" ,3)==0) ||(strncmp(Sales_Code, "INS" ,3)==0) || (strncmp(Sales_Code, "INU" ,3)==0)
+			|| (strncmp(Sales_Code, "NPL" ,3)==0) || (strncmp(Sales_Code, "SLK" ,3)==0) || (strncmp(Sales_Code, "TML" ,3)==0) )
+			load_565rle_image(INIT_IMAGE_VARIANT_FILE, 0);
+		else
+#endif
 		load_565rle_image(INIT_IMAGE_FILE, 0);
+	}
 
 	return ret;
 }

@@ -12,11 +12,10 @@
  */
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
-#include <linux/android_pmem.h>
 #include <linux/dma-mapping.h>
 #include <linux/errno.h>
 #include <linux/file.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
@@ -164,14 +163,16 @@ done:
 
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format)
 {
-	struct mdss_mdp_format_params *fmt = NULL;
 	if (format < MDP_IMGTYPE_LIMIT) {
-		fmt = &mdss_mdp_format_map[format];
-		if (fmt->format != format)
-			fmt = NULL;
+		struct mdss_mdp_format_params *fmt = NULL;
+		int i;
+		for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_map); i++) {
+			fmt = &mdss_mdp_format_map[i];
+			if (format == fmt->format)
+				return fmt;
+		}
 	}
-
-	return fmt;
+	return NULL;
 }
 
 int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
@@ -193,29 +194,34 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 	memset(ps, 0, sizeof(struct mdss_mdp_plane_sizes));
 
 	if (fmt->fetch_planes == MDSS_MDP_PLANE_INTERLEAVED) {
-		u32 bpp = fmt->bpp + 1;
+		u32 bpp = fmt->bpp;
 		ps->num_planes = 1;
 		ps->plane_size[0] = w * h * bpp;
 		ps->ystride[0] = w * bpp;
 	} else {
 		u8 hmap[] = { 1, 2, 1, 2 };
 		u8 vmap[] = { 1, 1, 2, 2 };
-		u8 horiz, vert;
+		u8 horiz, vert, stride_align;
 
 		horiz = hmap[fmt->chroma_sample];
 		vert = vmap[fmt->chroma_sample];
 
-		if (format == MDP_Y_CR_CB_GH2V2) {
-			ps->plane_size[0] = ALIGN(w, 16) * h;
-			ps->plane_size[1] = ALIGN(w / horiz, 16) * (h / vert);
-			ps->ystride[0] = ALIGN(w, 16);
-			ps->ystride[1] = ALIGN(w / horiz, 16);
-		} else {
-			ps->plane_size[0] = w * h;
-			ps->plane_size[1] = (w / horiz) * (h / vert);
-			ps->ystride[0] = w;
-			ps->ystride[1] = (w / horiz);
+		switch (format) {
+		case MDP_Y_CR_CB_GH2V2:
+			stride_align = 16;
+			break;
+		case MDP_Y_CBCR_H2V2_VENUS:
+			stride_align = 32;
+			break;
+		default:
+			stride_align = 1;
+			break;
 		}
+
+		ps->ystride[0] = ALIGN(w, stride_align);
+		ps->ystride[1] = ALIGN(w / horiz, stride_align);
+		ps->plane_size[0] = ps->ystride[0] * h;
+		ps->plane_size[1] = ps->ystride[1] * (h / vert);
 
 		if (fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR) {
 			ps->num_planes = 2;
@@ -285,7 +291,6 @@ int mdss_mdp_put_img(struct mdss_mdp_img_data *data)
 		return 0;
 	}
 	if (data->srcp_file) {
-		put_pmem_file(data->srcp_file);
 		data->srcp_file = NULL;
 		return 0;
 	}
@@ -331,10 +336,6 @@ int mdss_mdp_get_img(struct ion_client *iclient, struct msmfb_data *img,
 			return PTR_ERR(data->srcp_ihdl);
 		ret = ion_phys(iclient, data->srcp_ihdl,
 			       start, (size_t *) len);
-	} else {
-		unsigned long vstart;
-		ret = get_pmem_file(img->memory_id, start, &vstart, len,
-				    &data->srcp_file);
 	}
 
 	if (!ret && (img->offset < data->len)) {

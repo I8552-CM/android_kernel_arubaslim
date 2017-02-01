@@ -2,7 +2,7 @@
  *
  * qcelp audio input device
  *
- * Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5v2/audio_qcelp_in.c,
  * Copyright (C) 2008 Google, Inc.
@@ -33,7 +33,7 @@
 
 
 #include <linux/memory_alloc.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include <asm/atomic.h>
 #include <asm/ioctls.h>
@@ -732,6 +732,7 @@ static long audqcelp_in_ioctl(struct file *file,
 	MM_DBG("\n");
 	if (cmd == AUDIO_GET_STATS) {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(stats));
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
 		if (copy_to_user((void *) arg, &stats, sizeof(stats)))
@@ -884,6 +885,7 @@ static ssize_t audqcelp_in_read(struct file *file,
 	int rc = 0;
 	struct qcelp_encoded_meta_out meta_field;
 	struct audio_frame_nt *nt_frame;
+        memset(&meta_field, 0, sizeof(meta_field));
 	MM_DBG("count = %d\n", count);
 	mutex_lock(&audio->read_lock);
 	while (count > 0) {
@@ -1312,7 +1314,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 
 	MM_DBG("allocating mem sz = %d\n", dma_size);
 	handle = ion_alloc(client, dma_size, SZ_4K,
-		ION_HEAP(ION_AUDIO_HEAP_ID));
+		ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 	if (IS_ERR_OR_NULL(handle)) {
 		MM_ERR("Unable to create allocate O/P buffers\n");
 		rc = -ENOMEM;
@@ -1340,7 +1342,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 		goto output_buff_get_flags_error;
 	}
 
-	audio->map_v_read = ion_map_kernel(client, handle, ionflag);
+	audio->map_v_read = ion_map_kernel(client, handle);
 	if (IS_ERR(audio->map_v_read)) {
 		MM_ERR("could not map read buffers,freeing instance 0x%08x\n",
 				(int)audio);
@@ -1355,7 +1357,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 	if (audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) {
 		MM_DBG("allocating BUFFER_SIZE  %d\n", BUFFER_SIZE);
 		handle = ion_alloc(client, BUFFER_SIZE,
-				SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID));
+				SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 		if (IS_ERR_OR_NULL(handle)) {
 			MM_ERR("Unable to create allocate I/P buffers\n");
 			rc = -ENOMEM;
@@ -1385,8 +1387,7 @@ static int audqcelp_in_open(struct inode *inode, struct file *file)
 			goto input_buff_get_flags_error;
 		}
 
-		audio->map_v_write = ion_map_kernel(client,
-			handle, ionflag);
+		audio->map_v_write = ion_map_kernel(client, handle);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;

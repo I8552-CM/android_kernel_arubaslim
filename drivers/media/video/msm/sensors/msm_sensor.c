@@ -925,8 +925,6 @@ int32_t msm_sensor_i2c_probe(struct i2c_client *client,
 	gpio_tlmm_config(GPIO_CFG(61, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 #elif defined (CONFIG_MACH_DELOS_CTC)
 	gpio_tlmm_config(GPIO_CFG(113, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-#elif defined (CONFIG_MACH_ARUBASLIM_OPEN)
-	gpio_tlmm_config(GPIO_CFG(76, 0, GPIO_CFG_OUTPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 #endif
 
 	snprintf(s_ctrl->sensor_v4l2_subdev.name,

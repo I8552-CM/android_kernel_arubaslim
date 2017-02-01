@@ -2,7 +2,7 @@
  *
  * amrnb encoder device
  *
- * Copyright (c) 2009, 2011-2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2009, 2011-2013 The Linux Foundation. All rights reserved.
  *
  * This code is based in part on arch/arm/mach-msm/qdsp5/audio_in.c, which is
  * Copyright (C) 2008 Google, Inc.
@@ -37,7 +37,7 @@
 #include <linux/delay.h>
 #include <linux/msm_audio_amrnb.h>
 #include <linux/memory_alloc.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include "audmgr.h"
 
@@ -742,6 +742,7 @@ static long audamrnb_in_ioctl(struct file *file,
 	MM_DBG("\n");
 	if (cmd == AUDIO_GET_STATS) {
 		struct msm_audio_stats stats;
+		memset(&stats, 0, sizeof(stats));
 		stats.byte_count = atomic_read(&audio->in_bytes);
 		stats.sample_count = atomic_read(&audio->in_samples);
 		if (copy_to_user((void *) arg, &stats, sizeof(stats)))
@@ -896,6 +897,7 @@ static ssize_t audamrnb_in_read(struct file *file,
 	struct amrnb_encoded_meta_out meta_field;
 	struct audio_frame_nt *nt_frame;
 	MM_DBG("count = %d\n", count);
+        memset(&meta_field, 0, sizeof(meta_field));
 	mutex_lock(&audio->read_lock);
 	while (count > 0) {
 		rc = wait_event_interruptible(
@@ -1336,7 +1338,7 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 	if (audio->mode == MSM_AUD_ENC_MODE_NONTUNNEL) {
 		MM_DBG("allocating BUFFER_SIZE  %d\n", BUFFER_SIZE);
 		handle = ion_alloc(client, BUFFER_SIZE,
-				SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID));
+				SZ_4K, ION_HEAP(ION_AUDIO_HEAP_ID), 0);
 		if (IS_ERR_OR_NULL(handle)) {
 			MM_ERR("Unable to create allocate write buffers\n");
 			rc = -ENOMEM;
@@ -1366,8 +1368,7 @@ static int audamrnb_in_open(struct inode *inode, struct file *file)
 			goto input_buff_get_flags_error;
 		}
 
-		audio->map_v_write = ion_map_kernel(client,
-			handle, ionflag);
+		audio->map_v_write = ion_map_kernel(client, handle);
 		if (IS_ERR(audio->map_v_write)) {
 			MM_ERR("could not map write buffers\n");
 			rc = -ENOMEM;

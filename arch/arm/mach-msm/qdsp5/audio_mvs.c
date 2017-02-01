@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -928,8 +928,7 @@ static void audio_mvs_process_rpc_request(uint32_t procedure,
 
 				MM_DBG("UL AMR frame_type %d\n",
 					 be32_to_cpu(*args));
-			} else if ((frame_mode == MVS_FRAME_MODE_PCM_UL) ||
-				   (frame_mode == MVS_FRAME_MODE_PCM_WB_UL)) {
+			} else if (frame_mode == MVS_FRAME_MODE_PCM_UL) {
 				/* PCM doesn't have frame_type */
 				buf_node->frame.frame_type = 0;
 			} else if (frame_mode == MVS_FRAME_MODE_VOC_TX) {
@@ -1056,8 +1055,7 @@ static void audio_mvs_process_rpc_request(uint32_t procedure,
 							cpu_to_be32(0x00000001);
 				dl_reply.cdc_param.gnr_arg.pkt_status =
 					cpu_to_be32(AUDIO_MVS_PKT_NORMAL);
-			} else if ((frame_mode == MVS_FRAME_MODE_PCM_DL) ||
-				(frame_mode == MVS_FRAME_MODE_PCM_WB_DL)) {
+			} else if (frame_mode == MVS_FRAME_MODE_PCM_DL) {
 				dl_reply.cdc_param.gnr_arg.param1 = 0;
 				dl_reply.cdc_param.gnr_arg.param2 = 0;
 				dl_reply.cdc_param.\
@@ -1239,7 +1237,6 @@ static int audio_mvs_thread(void *data)
 		kfree(rpc_hdr);
 		rpc_hdr = NULL;
 	}
-
 	complete_and_exit(&audio->complete, 0);
 	MM_DBG("MVS thread stopped\n");
 
@@ -1519,7 +1516,7 @@ static long audio_mvs_ioctl(struct file *file,
 	switch (cmd) {
 	case AUDIO_GET_MVS_CONFIG: {
 		struct msm_audio_mvs_config config;
-
+		memset(&config, 0, sizeof(config));
 		MM_DBG("GET_MVS_CONFIG mvs_mode %d rate_type %d\n",
 			config.mvs_mode, config.rate_type);
 
@@ -1671,19 +1668,19 @@ static int audio_mvs_open(struct inode *inode, struct file *file)
 
 	mutex_lock(&audio_mvs_info.lock);
 
-		if (audio_mvs_info.task != NULL ||
+	if (audio_mvs_info.task != NULL ||
 			audio_mvs_info.rpc_endpt != NULL) {
-			rc = audio_mvs_alloc_buf(&audio_mvs_info);
+		rc = audio_mvs_alloc_buf(&audio_mvs_info);
 
-			if (rc == 0) {
-				audio_mvs_info.state = AUDIO_MVS_OPENED;
-				file->private_data = &audio_mvs_info;
-			}
-		}  else {
-			MM_ERR("MVS thread and RPC end point do not exist\n");
-
-			rc = -ENODEV;
+		if (rc == 0) {
+			audio_mvs_info.state = AUDIO_MVS_OPENED;
+			file->private_data = &audio_mvs_info;
 		}
+	}  else {
+		MM_ERR("MVS thread and RPC end point do not exist\n");
+
+		rc = -ENODEV;
+	}
 
 	mutex_unlock(&audio_mvs_info.lock);
 
@@ -1733,14 +1730,6 @@ static int __init audio_mvs_init(void)
 	return misc_register(&audio_mvs_misc);
 }
 
-/*
-*    Qualcomm patch - 2013/01/14
-*    Not releasing wake_lock resource will have presence in the
-*    list maintained by wake_lock driver. While exiting this module,
-*    we are going to free these structures from memory which will
-*    corrupt the list and hence crash. So, release the resources
-*    when done, before exiting.
-*/
 static void __exit audio_mvs_exit(void)
 {
 	MM_DBG("\n");

@@ -49,57 +49,7 @@ enum ion_heap_type {
 #define ION_HEAP_SYSTEM_MASK		(1 << ION_HEAP_TYPE_SYSTEM)
 #define ION_HEAP_SYSTEM_CONTIG_MASK	(1 << ION_HEAP_TYPE_SYSTEM_CONTIG)
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_TYPE_CARVEOUT)
-#define ION_HEAP_CP_MASK		(1 << ION_HEAP_TYPE_CP)
-
-/**
- * heap flags - the lower 16 bits are used by core ion, the upper 16
- * bits are reserved for use by the heaps themselves.
- */
-#define ION_FLAG_CACHED 1		/* mappings of this buffer should be
-					   cached, ion will do cache
-					   maintenance when the buffer is
-					   mapped for dma */
-
-/**
- * These are the only ids that should be used for Ion heap ids.
- * The ids listed are the order in which allocation will be attempted
- * if specified. Don't swap the order of heap ids unless you know what
- * you are doing!
- * Id's are spaced by purpose to allow new Id's to be inserted in-between (for
- * possible fallbacks)
- */
-
-enum ion_heap_ids {
-	INVALID_HEAP_ID = -1,
-	ION_CP_MM_HEAP_ID = 8,
-	ION_CP_MFC_HEAP_ID = 12,
-	ION_CP_WB_HEAP_ID = 16, /* 8660 only */
-	ION_CAMERA_HEAP_ID = 20, /* 8660 only */
-	ION_SF_HEAP_ID = 24,
-	ION_IOMMU_HEAP_ID = 25,
-	ION_QSECOM_HEAP_ID = 27,
-	ION_AUDIO_HEAP_ID = 28,
-
-	ION_MM_FIRMWARE_HEAP_ID = 29,
-	ION_SYSTEM_HEAP_ID = 30,
-
-	ION_HEAP_ID_RESERVED = 31 /** Bit reserved for ION_SECURE flag */
-};
-
-enum ion_fixed_position {
-	NOT_FIXED,
-	FIXED_LOW,
-	FIXED_MIDDLE,
-	FIXED_HIGH,
-};
-
-enum cp_mem_usage {
-	VIDEO_BITSTREAM = 0x1,
-	VIDEO_PIXEL = 0x2,
-	VIDEO_NONPIXEL = 0x3,
-	MAX_USAGE = 0x4,
-	UNKNOWN = 0x7FFFFFFF,
-};
+#define ION_HEAP_TYPE_DMA_MASK         (1 << ION_HEAP_TYPE_DMA)
 
 /**
  * heap flags - the lower 16 bits are used by core ion, the upper 16
@@ -698,11 +648,5 @@ struct ion_custom_data {
 #define ION_IOC_GET_FLAGS_COMPAT	_IOWR(ION_IOC_MAGIC, 10, \
 						struct ion_flag_data)
 
-/**
- * DOC: ION_IOC_SYNC - BOGUS
- *
- * NOT SUPPORTED
- */
-#define ION_IOC_SYNC		_IOWR(ION_IOC_MAGIC, 42, \
-						struct ion_flag_data)
+
 #endif /* _LINUX_ION_H */

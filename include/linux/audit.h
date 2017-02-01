@@ -70,6 +70,8 @@
 #define AUDIT_TTY_GET		1016	/* Get TTY auditing status */
 #define AUDIT_TTY_SET		1017	/* Set TTY auditing status */
 
+#define LSM_AUDIT_DATA_IOCTL_OP	11
+
 #define AUDIT_FIRST_USER_MSG	1100	/* Userspace messages mostly uninteresting to kernel */
 #define AUDIT_USER_AVC		1107	/* We filter this differently */
 #define AUDIT_USER_TTY		1124	/* Non-ICANON TTY input meaning */

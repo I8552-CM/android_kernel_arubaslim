@@ -403,7 +403,7 @@ void cam_flash_torch_on(int flashMode)
 #else
 
 	gpio_set_value_cansleep(ARUBA_CAM_FLASH_EN, 1);
-	gpio_set_value_cansleep(ARUBA_CAM_FLASH_SET, 0);
+		gpio_set_value_cansleep(ARUBA_CAM_FLASH_SET, 0);
 
 #endif
 
@@ -452,7 +452,7 @@ void cam_flash_off(int flashMode)
 	}
 
 #endif
-}
+	}
 
 
 #endif
@@ -690,7 +690,7 @@ int32_t msm_sensor_power_up_aruba_open(struct msm_sensor_ctrl_t *s_ctrl)
 	udelay(150);// VCAM_A_2.8V
 
 	gpio_set_value(ARUBA_CAM_IO_EN, 1);
-	udelay(70);// GPIO 4 : EN_C_EN / VVT_1.8V
+	udelay(10);// GPIO 4 : EN_C_EN / VVT_1.8V
 
 	gpio_set_value(ARUBA_CAM_C_EN, 1);	// GPIO 107 : CAM_C_EN
 	gpio_set_value(ARUBA_CAM_AF_EN, 1);
@@ -966,10 +966,6 @@ int32_t msm_sensor_power_up_delos_open(struct msm_sensor_ctrl_t *s_ctrl)
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SCL, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SDA, 1, GPIO_CFG_OUTPUT, GPIO_CFG_NO_PULL, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 #endif
-#if defined(CONFIG_MACH_DELOS_CTC)
-	gpio_tlmm_config(GPIO_CFG(113, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	//set input GPIO CFG 113
-#endif
 #if defined (CONFIG_MACH_DELOS_DUOS_CTC) || defined(CONFIG_MACH_HENNESSY_DUOS_CTC)
 	rc = gpio_request(ARUBA_CAM_A_EN, "aruba_stby");
 	gpio_direction_output(ARUBA_CAM_A_EN, 0);
@@ -1028,11 +1024,9 @@ int32_t msm_sensor_power_up_delos_open(struct msm_sensor_ctrl_t *s_ctrl)
 	gpio_set_value(ARUBA_CAM_IO_EN, 1);	//SENSOR I/O High
 	printk("ARUBA_CAM_IO_EN = %d\n", gpio_get_value(ARUBA_CAM_IO_EN));
 	usleep(50);
-#if !defined(CONFIG_MACH_HENNESSY_DUOS_CTC)	
 	gpio_set_value(FRONT_CAM_STBY, 1);	//VT STBY High
 	usleep(10);
 	printk("FRONT_CAM_STBY = %d\n", gpio_get_value(FRONT_CAM_STBY));
-#endif	
 	if (s_ctrl->clk_rate != 0)
 		cam_clk_info->clk_rate = s_ctrl->clk_rate;
 
@@ -1044,13 +1038,11 @@ int32_t msm_sensor_power_up_delos_open(struct msm_sensor_ctrl_t *s_ctrl)
 	}
 
 	usleep(2000);	//at least VT Reset high 4ms after VT STBY on
-#if !defined(CONFIG_MACH_HENNESSY_DUOS_CTC)	
 	gpio_set_value(FRONT_CAM_RESET, 1);	//VT RESET High
 	printk("FRONT_CAM_RESET = %d\n", gpio_get_value(FRONT_CAM_RESET));
 	usleep(1000);  
 	gpio_set_value(FRONT_CAM_STBY, 0);	//VT STBY Low
 	printk("FRONT_CAM_STBY = %d\n", gpio_get_value(FRONT_CAM_STBY));
-#endif	
 	gpio_set_value(ARUBA_CAM_C_EN, 1);
 	printk("ARUBA_CAM_C_EN = %d\n", gpio_get_value(ARUBA_CAM_C_EN));
 	gpio_set_value(ARUBA_CAM_AF_EN, 1);	//5M Core High
@@ -1119,9 +1111,8 @@ int32_t msm_sensor_power_down_delos_open(struct msm_sensor_ctrl_t *s_ctrl)
 	msleep(1);
 	gpio_set_value_cansleep(ARUBA_CAM_STBY, 0);		//STBYN :: MSM_GPIO 96
 	usleep(10);
-#if !defined(CONFIG_MACH_HENNESSY_DUOS_CTC)	
 	gpio_set_value_cansleep(FRONT_CAM_RESET,0);
-#endif	
+	
 	gpio_set_value_cansleep(ARUBA_CAM_C_EN, 0);
 	usleep(2000);
 	gpio_set_value_cansleep(ARUBA_CAM_IO_EN, 0);
@@ -1155,10 +1146,6 @@ int32_t msm_sensor_power_down_delos_open(struct msm_sensor_ctrl_t *s_ctrl)
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SCL, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 	gpio_tlmm_config(GPIO_CFG(CAM_I2C_SDA, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
 #endif	
-#if defined(CONFIG_MACH_DELOS_CTC)
-	gpio_tlmm_config(GPIO_CFG(113, 0, GPIO_CFG_INPUT, GPIO_CFG_PULL_DOWN, GPIO_CFG_2MA), GPIO_CFG_ENABLE);
-	//set input GPIO CFG 113
-#endif
 	return 0;
 }
 #endif
