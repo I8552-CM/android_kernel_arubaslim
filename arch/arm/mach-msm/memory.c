@@ -37,7 +37,7 @@
 #include <mach/socinfo.h>
 #include <linux/sched.h>
 #include <linux/of_fdt.h>
-
+#include <linux/android_pmem.h>
 /* fixme */
 #include <asm/tlbflush.h>
 #include <../../mm/mm.h>

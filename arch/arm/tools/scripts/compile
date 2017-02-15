@@ -1,0 +1,25 @@
+#!/bin/bash
+version=0
+make -j4 arubaslim_defconfig
+make -j4 
+	if [ "$android" = yes ]; then
+$CROSS_COMPILE\strip --strip-unneeded `find -type f -name *.ko`
+		else
+$HOME/android_prebuilt_toolchains/arm-eabi-4.7/bin/arm-eabi-strip --strip-unneeded `find -type f -name *.ko`
+	fi
+
+mkdir system
+mkdir system/lib/
+mkdir system/lib/modules
+rsync -r `find -type f -name "*.ko"` system/lib/modules
+cp arch/arm/boot/Image arch/arm/tools/zImage
+mv system arch/arm/tools/
+cd arch/arm/tools
+#cd ramdisk
+#find . | cpio -o -H newc | gzip > ../boot.img-ramdisk
+#cd ..
+gcc -o mkbootimg libmincrypt/*.c mkbootimg.c -Iinclude
+./mkbootimg --kernel zImage  --ramdisk boot.img-ramdisk.gz --ramdisk_offset 01300000 --tags_offset 00000100 --base 00200000 --pagesize 4096 -o boot.img
+zip -r tmp META-INF boot.img system 
+rm -rf system boot.img zImage mkbootimg
+mv -f tmp.zip ../../../kernel-$(date +%Y%m%d)-3.4.$version-UNOFFICIAL-arubaslim.zip 

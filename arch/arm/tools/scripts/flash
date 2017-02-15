@@ -1,0 +1,27 @@
+#!/bin/bash
+version=0
+echo "Waiting for device"
+adb wait-for-device
+mkdir tmp 
+cp kernel-$(date +%Y%m%d)-3.4.$version-UNOFFICIAL-arubaslim.zip  tmp/
+cd tmp
+unzip *.zip
+echo "PUSHING BOOT.IMG"
+adb push boot.img /sdcard/boot.img
+echo "Flashing "
+adb shell "su -c 'dd if=/sdcard/boot.img of=/dev/block/mmcblk0p8'"
+adb shell rm /sdcard/boot.img
+echo "installing modules"
+cd system/lib/
+adb shell mkdir /sdcard/modules
+adb push modules /sdcard/
+adb shell "su -c 'mount -o rw,remount,rw /system'"
+adb shell "su -c 'rm -rf /system/lib/modules/*.ko'"
+adb shell "su -c 'rsync -r /sdcard/modules/*.ko /system/lib/modules/'"
+adb shell "su -c 'rm -rf /sdcard/modules'"
+adb shell "su -c 'chmod 7664 /system/lib/modules/*.ko'"
+echo "rebooting device don't unplug cable"
+adb shell "su -c 'reboot'"
+cd ../../../
+rm -rf tmp
+clear

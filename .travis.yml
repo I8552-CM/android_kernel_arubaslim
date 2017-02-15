@@ -3,11 +3,14 @@ before_script:
 - git clone "https://github.com/ZIM555/android_prebuilts_gcc.git" "$HOME/android_prebuilt_toolchains"
 - sudo apt-get install lzop
 script:
-- export ARCH=arm
 - export CROSS_COMPILE="$HOME/android_prebuilt_toolchains/arm-eabi-4.7/bin/arm-eabi-"
-- make -j4 arubaslim_defconfig
-- make -j4 
-- mv arch/arm/boot/zImage zImage
-- md5sum zImage > md5
-- mv zImage "zImage-$(date +%Y%m%d)-$(cat md5)"
-- curl --upload-file "./zImage-$(date +%Y%m%d)-$(cat md5)" "https://transfer.sh/zImage-$(date +%Y%m%d)-$(cat md5)"
+- export ARCH=arm
+- "./build_kernel"
+deploy:
+  provider: releases
+  api_key:
+    secure: QrYzZBfoXLPpZQsrppMCKxu6gjyhGzv1cDn353eByW2/YmBxkmMi+nltLLPFZHRLJfrFJYhMFUD9rhdN96BVt+t0MBPFU8oJnyHcdIYbvX+GUdr3DqNQkpxcORE3gQACCvMeofwG8McNdUsSOLvIgdDX/6y92spqBnM2seL+x+3NFAnlBELSer2eKyN90N4hjq4i0fBqyZT4p+EUL47JMAJtNof88Q8tnfsmOxvif8k2i0FpL0a3BCnY0CpoQ76wgBnz383KdyPXxbEX1IsFbYWeWa6fOmXWU1U2FsXBhyDco6Ex7ZNmNUgsKo1LZtwm9ZAFq43m1DWTdMc6T1tCdxTWFf0Wb8AjcTUtjJGFBBegP2k389+ogyQHRqk2UIp0nqw0iWpLkcHAXtH2DnDDnYbedlOdnLc3p4xEa0HwLKKGnMrVte3LulNrhFFiBlJXwrk5MgCOqE66G7kigpJ5uL1zRYYeW+sWAr6kWMkdA5MbcU9qwhNsZZg0UqC7Drnz9xJq7c7d+x5gB+qTG2bmLe8dCuJhB4ACloD1lyFGQWUct1kRJbSlYG0bUbqu9TbyCZpapDhqMhU0jjbS+zyMJ6uA1BI/3PvNEtiFXMi9m+OpFGkJRGVt8Hm9ROhup+mH701rNxtwyv1Rg/NyS3OA0WiUmKf0DS0Bo7ta8Wh5lgE=
+  file: "./kernel-$(date +%Y%m%d)-3.4.0-UNOFFICIAL-arubaslim.zip"
+  on:
+    repo: I8552-CM/android_kernel_arubaslim
+    branch: mm6.0

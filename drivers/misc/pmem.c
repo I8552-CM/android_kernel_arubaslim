@@ -595,17 +595,12 @@ static int pmem_free_from_id(const int id, const int index)
 
 static int request_dma_memory(int id)
 {
-<<<<<<< HEAD
 	unsigned char *vaddr = NULL;
 	unsigned int retry = 0;
-=======
-	unsigned char *vaddr;
->>>>>>> 4cb16e758... misc: pmem: Support for dynamic allocation through CMA
 	dma_addr_t handle;
 
 	DLOG("request dma memory id %d\n", id);
 
-<<<<<<< HEAD
 	do {
 		if (!pmem[id].cached)
 			vaddr = dma_alloc_writecombine(pmem[id].private_data,
@@ -615,16 +610,6 @@ static int request_dma_memory(int id)
 						pmem[id].size, &handle, GFP_KERNEL);
 		retry++;
 	} while (!vaddr && retry < DMA_ALLOC_RETRY);
-=======
-	vaddr = NULL;
-
-	if (!pmem[id].cached)
-		vaddr = dma_alloc_writecombine(pmem[id].private_data,
-					pmem[id].size, &handle, GFP_KERNEL);
-	else
-		vaddr = dma_alloc_nonconsistent(pmem[id].private_data,
-					pmem[id].size, &handle, GFP_KERNEL);
->>>>>>> 4cb16e758... misc: pmem: Support for dynamic allocation through CMA
 
 	if (!vaddr) {
 		pr_err("pmem: dma alloc failed for id=%d size=%ld\n",
@@ -632,12 +617,9 @@ static int request_dma_memory(int id)
 		return -1;
 	}
 
-<<<<<<< HEAD
 	DLOG("dma alloc succeeded for id %d, size %ld, retry %u\n",
 			id, pmem[id].size, retry);
 
-=======
->>>>>>> 4cb16e758... misc: pmem: Support for dynamic allocation through CMA
 	pmem[id].base = handle;
 	pmem[id].vbase = vaddr;
 
