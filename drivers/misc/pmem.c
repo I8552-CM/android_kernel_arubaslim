@@ -19,6 +19,7 @@
 #include <linux/platform_device.h>
 #include <linux/fs.h>
 #include <linux/file.h>
+#include <linux/fmem.h>
 #include <linux/mm.h>
 #include <linux/list.h>
 #include <linux/debugfs.h>
@@ -31,6 +32,7 @@
 #include <linux/vmalloc.h>
 #include <linux/io.h>
 #include <linux/mm_types.h>
+#include <linux/dma-mapping.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -54,7 +56,8 @@
 #define PMEM_DEBUG 0
 #endif
 
-#define SYSTEM_ALLOC_RETRY 10
+#define SYSTEM_ALLOC_RETRY	10
+#define DMA_ALLOC_RETRY		10
 
 /* indicates that a refernce to this file has been taken via get_pmem_file,
  * the file should not be released until put_pmem_file is called */
@@ -245,6 +248,18 @@ struct pmem_info {
 	 * map and unmap as needed
 	 */
 	int map_on_demand;
+	/*
+	 * memory will be reused through fmem
+	 */
+	int reusable;
+	/*
+	 * memory will be dynamically allocated using CMA
+	 */
+	int use_cma;
+	/*
+	 * private data
+	 */
+	void *private_data;
 };
 #define to_pmem_info_id(a) (container_of(a, struct pmem_info, kobj)->id)
 
@@ -578,18 +593,65 @@ static int pmem_free_from_id(const int id, const int index)
 	return pmem[id].free(id, index);
 }
 
+static int request_dma_memory(int id)
+{
+	unsigned char *vaddr = NULL;
+	unsigned int retry = 0;
+	dma_addr_t handle;
+
+	DLOG("request dma memory id %d\n", id);
+
+	do {
+		if (!pmem[id].cached)
+			vaddr = dma_alloc_writecombine(pmem[id].private_data,
+						pmem[id].size, &handle, GFP_KERNEL);
+		else
+			vaddr = dma_alloc_nonconsistent(pmem[id].private_data,
+						pmem[id].size, &handle, GFP_KERNEL);
+		retry++;
+	} while (!vaddr && retry < DMA_ALLOC_RETRY);
+
+	if (!vaddr) {
+		pr_err("pmem: dma alloc failed for id=%d size=%ld\n",
+			id, pmem[id].size);
+		return -1;
+	}
+
+	DLOG("dma alloc succeeded for id %d, size %ld, retry %u\n",
+			id, pmem[id].size, retry);
+
+	pmem[id].base = handle;
+	pmem[id].vbase = vaddr;
+
+	return 0;
+}
+
+static void release_dma_memory(int id)
+{
+	DLOG("release dma memory id %d\n", id);
+
+	if (pmem[id].vbase != NULL) {
+		dma_free_coherent(pmem[id].private_data, pmem[id].size,
+				pmem[id].vbase, pmem[id].base);
+		pmem[id].vbase = NULL;
+	}
+}
+
 static int pmem_get_region(int id)
 {
+	int ret = 0;
+
 	/* Must be called with arena mutex locked */
 	atomic_inc(&pmem[id].allocation_cnt);
 	if (!pmem[id].vbase) {
 		DLOG("PMEMDEBUG: mapping for %s", pmem[id].name);
-		if (pmem[id].mem_request) {
-			int ret = pmem[id].mem_request(pmem[id].region_data);
-			if (ret) {
-				atomic_dec(&pmem[id].allocation_cnt);
-				return 1;
-			}
+		if (pmem[id].mem_request)
+			ret = pmem[id].mem_request(pmem[id].region_data);
+		else if (pmem[id].use_cma)
+			ret = request_dma_memory(id);
+		if (ret) {
+			atomic_dec(&pmem[id].allocation_cnt);
+			return 1;
 		}
 		ioremap_pmem(id);
 	}
@@ -622,7 +684,8 @@ static void pmem_put_region(int id)
 						pmem[id].region_data);
 				WARN(ret, "mem_release failed");
 			}
-
+		} else if (pmem[id].use_cma) {
+			release_dma_memory(id);
 		}
 	}
 }
@@ -1440,7 +1503,7 @@ static void *pmem_start_vaddr(int id, struct pmem_data *data)
 	if (pmem[id].allocator_type == PMEM_ALLOCATORTYPE_SYSTEM)
 		return ((struct alloc_list *)(data->index))->vaddr;
 	else
-	return pmem[id].start_addr(id, data) - pmem[id].base + pmem[id].vbase;
+		return pmem[id].start_addr(id, data) - pmem[id].base + pmem[id].vbase;
 }
 
 static unsigned long pmem_len_all_or_nothing(int id, struct pmem_data *data)
@@ -2570,7 +2633,7 @@ static void ioremap_pmem(int id)
 		 * aliasing when these pages are remapped to user space.
 		 */
 		flush_cache_vmap(addr, addr + pmem[id].size);
-	} else {
+	} else if (!pmem[id].use_cma) {
 		if (pmem[id].cached)
 			pmem[id].vbase = ioremap_cached(pmem[id].base,
 						pmem[id].size);
@@ -2781,7 +2844,10 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	pmem[id].dev.name = pdata->name;
 	pmem[id].dev.minor = id;
 	pmem[id].dev.fops = &pmem_fops;
-	pr_info("pmem: Initializing %s (user-space) as %s\n",
+	pmem[id].reusable = pdata->reusable;
+	pmem[id].use_cma = pdata->use_cma;
+	pmem[id].private_data = pdata->private_data;
+	pr_info("pmem: Initializing %s as %s\n",
 		pdata->name, pdata->cached ? "cached" : "non-cached");
 
 	if (misc_register(&pmem[id].dev)) {
@@ -2789,27 +2855,36 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 		goto err_cant_register_device;
 	}
 
-	pmem[id].base = allocate_contiguous_memory_nomap(pmem[id].size,
-		pmem[id].memory_type, PAGE_SIZE);
-	if (!pmem[id].base) {
-		pr_err("pmem: Cannot allocate from reserved memory for %s\n",
-			pdata->name);
-		 goto err_misc_deregister;
+	if (!pmem[id].reusable && !pmem[id].use_cma) {
+		pmem[id].base = allocate_contiguous_memory_nomap(pmem[id].size,
+			pmem[id].memory_type, PAGE_SIZE);
+		if (!pmem[id].base) {
+			pr_err("pmem: Cannot allocate from reserved memory for %s\n",
+				pdata->name);
+			goto err_misc_deregister;
+		}
 	}
 
-	pmem[id].map_on_demand = pdata->map_on_demand;
+	/* reusable pmem requires map on demand */
+	pmem[id].map_on_demand = pdata->map_on_demand || pdata->reusable;
 	if (pmem[id].map_on_demand) {
-		pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
-		if (!pmem_vma) {
-			pr_err("pmem: Failed to allocate virtual space for "
+		if (pmem[id].reusable) {
+			const struct fmem_data *fmem_info = fmem_get_info();
+			pmem[id].area = fmem_info->area;
+			pmem[id].base = fmem_info->phys;
+		} else {
+			pmem_vma = get_vm_area(pmem[id].size, VM_IOREMAP);
+			if (!pmem_vma) {
+				pr_err("pmem: Failed to allocate virtual space for "
 					"%s\n", pdata->name);
-			goto err_free;
-		}
-		pr_err("pmem: Reserving virtual address range %lx - %lx for"
+				goto err_free;
+			}
+			pr_err("pmem: Reserving virtual address range %lx - %lx for"
 				" %s\n", (unsigned long) pmem_vma->addr,
 				(unsigned long) pmem_vma->addr + pmem[id].size,
 				pdata->name);
-		pmem[id].area = pmem_vma;
+			pmem[id].area = pmem_vma;
+		}
 	} else
 		pmem[id].area = NULL;
 
@@ -2830,12 +2905,17 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	if (pdata->release_region)
 		pmem[id].mem_release = pdata->release_region;
 
+	pr_info("allocating %lu bytes at %lx physical for %s\n",
+		pmem[id].size, pmem[id].base, pmem[id].name);
+
 	return 0;
 
 cleanup_vm:
-	remove_vm_area(pmem_vma);
+	if (!pmem[id].reusable)
+		remove_vm_area(pmem_vma);
 err_free:
-	free_contiguous_memory_by_paddr(pmem[id].base);
+	if (!pmem[id].reusable)
+		free_contiguous_memory_by_paddr(pmem[id].base);
 err_misc_deregister:
 	misc_deregister(&pmem[id].dev);
 err_cant_register_device:
@@ -2877,7 +2957,7 @@ static int pmem_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	if (pmem[id].vbase)
 		iounmap(pmem[id].vbase);
-	if (pmem[id].area)
+	if (pmem[id].map_on_demand && !pmem[id].reusable && pmem[id].area)
 		free_vm_area(pmem[id].area);
 	if (pmem[id].base)
 		free_contiguous_memory_by_paddr(pmem[id].base);
@@ -2938,3 +3018,4 @@ static void __exit pmem_exit(void)
 
 module_init(pmem_init);
 module_exit(pmem_exit);
+
