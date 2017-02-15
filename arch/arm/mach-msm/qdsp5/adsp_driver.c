@@ -26,7 +26,7 @@
 #include "adsp.h"
 #include <linux/msm_adsp.h>
 #include <mach/debug_mm.h>
-
+#include <linux/android_pmem.h>
 struct adsp_pmem_info {
 	int fd;
 	void *vaddr;

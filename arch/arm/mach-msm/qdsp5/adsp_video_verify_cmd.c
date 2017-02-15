@@ -21,7 +21,7 @@
 #include <mach/qdsp5/qdsp5vdeccmdi.h>
 #include "adsp.h"
 #include <mach/debug_mm.h>
-
+#include <linux/android_pmem.h>
 #define MAX_FLUSH_SIZE 160
 
 static inline void *high_low_short_to_ptr(unsigned short high,
