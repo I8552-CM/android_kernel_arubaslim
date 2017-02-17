@@ -16,6 +16,9 @@
 #include <mach/kgsl.h>
 #include <linux/regulator/machine.h>
 #include <linux/init.h>
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+#include <linux/persistent_ram.h>
+#endif
 #include <linux/irq.h>
 #include <linux/notifier.h>
 #include <mach/irqs.h>
@@ -195,6 +198,40 @@ struct platform_device msm_device_hsusb_host = {
 static struct platform_device *msm_host_devices[] = {
 	&msm_device_hsusb_host,
 };
+
+#ifdef CONFIG_ANDROID_PERSISTENT_RAM
+#define PERSISTENT_RAM_SIZE SZ_512K
+#define RAM_CONSOLE_SIZE (124*SZ_1K * 2)
+#define PERSISTENT_RAM_BASE 0x1ce0000
+
+static struct persistent_ram_descriptor pram_descs[] = {
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+	{
+		.name = "ram_console",
+		.size = RAM_CONSOLE_SIZE,
+	},
+#endif
+};
+
+static struct persistent_ram msm7672a_persistent_ram = {
+	.start = PERSISTENT_RAM_BASE,
+	.size = PERSISTENT_RAM_SIZE,
+	.num_descs = ARRAY_SIZE(pram_descs),
+	.descs = pram_descs,
+};
+
+void __init add_persistent_ram(void)
+{
+	persistent_ram_early_init(&msm7672a_persistent_ram);
+}
+#endif
+
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+struct platform_device ram_console_device = {
+	.name = "ram_console",
+	.id = -1,
+};
+#endif /* CONFIG_ANDROID_RAM_CONSOLE */
 
 static struct resource msm_dmov_resource[] = {
 	{
@@ -1007,18 +1044,6 @@ static struct resource kgsl_3d0_resources[] = {
 static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 	.pwrlevel = {
 		{
-			.gpu_freq = 400000000,
-			.bus_freq = 300000000,
-		},
-		{
-			.gpu_freq = 300000000,
-			.bus_freq = 200000000,
-		},
-		{
-			.gpu_freq = 266000000,
-			.bus_freq = 200000000,
-		},
-		{
 			.gpu_freq = 245760000,
 			.bus_freq = 200000000,
 		},
@@ -1027,12 +1052,12 @@ static struct kgsl_device_platform_data kgsl_3d0_pdata = {
 			.bus_freq = 160000000,
 		},
 		{
-			.gpu_freq = 192000000,
+			.gpu_freq = 133330000,
 			.bus_freq = 0,
 		},
 	},
 	.init_level = 0,
-	.num_levels = 5,
+	.num_levels = 3,
 	.set_grp_async = set_grp_xbar_async,
 	.idle_timeout = HZ,
 	.strtstp_sleepwake = true,
@@ -1063,16 +1088,33 @@ void __init msm7x25a_kgsl_3d0_init(void)
 
 void __init msm8x25_kgsl_3d0_init(void)
 {
-	if (cpu_is_msm8625()) {
 		kgsl_3d0_pdata.idle_timeout = HZ/5;
 		kgsl_3d0_pdata.strtstp_sleepwake = false;
 
-		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2) {
+	if (cpu_is_msm8625()) {
+		if (SOCINFO_VERSION_MAJOR(socinfo_get_version()) >= 2)
 			/* 8x25 v2.0 & above supports a higher GPU frequency */
 			kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 320000000;
-			kgsl_3d0_pdata.pwrlevel[0].bus_freq = 200000000;
-		}
+		else
+			kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 300000000;
+
+		kgsl_3d0_pdata.pwrlevel[0].bus_freq = 200000000;
+	} else	if (cpu_is_msm8625q()) {
+			kgsl_3d0_pdata.num_levels = 4;
+
+			kgsl_3d0_pdata.pwrlevel[0].gpu_freq = 400000000;
+			kgsl_3d0_pdata.pwrlevel[0].bus_freq = 300000000;
+
+			kgsl_3d0_pdata.pwrlevel[1].gpu_freq = 320000000;
+			kgsl_3d0_pdata.pwrlevel[1].bus_freq = 300000000;
+
+			kgsl_3d0_pdata.pwrlevel[2].gpu_freq = 245760000;
+			kgsl_3d0_pdata.pwrlevel[2].bus_freq = 160000000;
+
+			kgsl_3d0_pdata.pwrlevel[3].gpu_freq = 133000000;
+			kgsl_3d0_pdata.pwrlevel[3].bus_freq = 0;
 	}
+
 }
 
 static void __init msm_register_device(struct platform_device *pdev, void *data)
@@ -2066,7 +2108,7 @@ static void __init msm_cpr_init(void)
 	}
 #else
 	if (cpu_is_msm8625q()) {
-		msm_cpr_mode_data.nom_Vmin = 1000000;
+		msm_cpr_mode_data.nom_Vmin = 1025000;
 		msm_cpr_mode_data.turbo_Vmin = 1150000;
 	} else {
 		if ((cpr_info->floor_fuse & 0x3) == 0x0) {
@@ -2080,7 +2122,7 @@ static void __init msm_cpr_init(void)
 			msm_cpr_mode_data.turbo_Vmin = 1125000;
 		} else {
 			if (msm8625_cpu_id() == MSM8625A) { //case floor fuse val==0x03 and 8x25A
-					msm_cpr_mode_data.turbo_Vmin = 1225000;
+					msm_cpr_mode_data.turbo_Vmin = 122500;
 					msm_cpr_mode_data.nom_Vmin = 1225000;
 			}
 		}
