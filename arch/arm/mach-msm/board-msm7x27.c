@@ -1482,10 +1482,16 @@ static struct msm_i2c_platform_data msm_gsbi1_qup_i2c_pdata = {
 #define MSM_PMEM_ADSP_SIZE      0x1300000
 #define MSM7x25A_MSM_RESERVE_ADSP_SIZE      0xB91000
 #define CAMERA_ZSL_SIZE		(SZ_1M * 60)
+
+#define MSM_ION_AUDIO_SIZE	(MSM_RESERVE_AUDIO_SIZE + RESERVE_KERNEL_EBI1_SIZE)
+#define MSM_ION_CAMERA_SIZE	MSM_PMEM_ADSP_SIZE
+#define MSM_ION_SF_SIZE		MSM_RESERVE_MDP_SIZE
+#define MSM_ION_HEAP_NUM	5
+
+#define MSM_ION_HEAP_NUM	5
 #endif
 
 #ifdef CONFIG_ION_MSM
-#define MSM_ION_HEAP_NUM        5
 static struct platform_device ion_dev;
 static int msm_ion_camera_size;
 static int msm_ion_audio_size;
